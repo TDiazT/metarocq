@@ -245,6 +245,7 @@ Register MetaRocq.Template.TemplateMonad.Core.tmMsg as metarocq.templatemonad.pr
 Register MetaRocq.Template.TemplateMonad.Core.tmFail as metarocq.templatemonad.prop.tmFail.
 Register MetaRocq.Template.TemplateMonad.Core.tmEval as metarocq.templatemonad.prop.tmEval.
 Register MetaRocq.Template.TemplateMonad.Core.tmVariable as metarocq.templatemonad.prop.tmVariable.
+Register MetaRocq.Template.TemplateMonad.Core.tmSymbol as metarocq.templatemonad.prop.tmSymbol.
 Register MetaRocq.Template.TemplateMonad.Core.tmLemma as metarocq.templatemonad.prop.tmLemma.
 Register MetaRocq.Template.TemplateMonad.Core.tmDefinitionRed_ as metarocq.templatemonad.prop.tmDefinitionRed_.
 Register MetaRocq.Template.TemplateMonad.Core.tmAxiomRed as metarocq.templatemonad.prop.tmAxiomRed.
