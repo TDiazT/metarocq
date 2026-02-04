@@ -33,6 +33,7 @@ Cumulative Inductive TemplateMonad@{t u} : Type@{t} -> Prop :=
 | tmDefinitionRed_ : forall (opaque : bool), ident -> option reductionStrategy -> forall {A:Type@{t}}, A -> TemplateMonad A
 | tmAxiomRed : ident -> option reductionStrategy -> forall A : Type@{t}, TemplateMonad A
 | tmVariable : ident -> Type@{t} -> TemplateMonad unit
+| tmSymbol : ident -> Type@{t} -> TemplateMonad unit
 
 (* Guaranteed to not cause "... already declared" error *)
 | tmFreshName : ident -> TemplateMonad ident

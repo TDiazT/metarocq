@@ -30,6 +30,7 @@ type template_monad =
   | TmAxiomTerm of Constr.t * Constr.t
   | TmMkInductive of Constr.t * Constr.t
   | TmVariable of Constr.t * Constr.t
+  | TmSymbol of Constr.t * Constr.t
 
   | TmFreshName of Constr.t
 
