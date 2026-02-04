@@ -24,6 +24,7 @@ let (ptmReturn,
      ptmMkDefinition,
      ptmMkInductive,
      ptmVariable,
+     ptmSymbol,
 
      ptmFreshName,
 
@@ -67,6 +68,7 @@ let (ptmReturn,
    r_template_monad_prop_p "tmMkDefinition",
    r_template_monad_prop_p "tmMkInductive",
    r_template_monad_prop_p "tmVariable",
+   r_template_monad_prop_p "tmSymbol",
 
    r_template_monad_prop_p "tmFreshName",
 
@@ -179,6 +181,7 @@ type template_monad =
   | TmAxiomTerm of Constr.t * Constr.t
   | TmMkInductive of Constr.t * Constr.t
   | TmVariable of Constr.t * Constr.t
+  | TmSymbol of Constr.t * Constr.t
 
   | TmFreshName of Constr.t
 
@@ -400,6 +403,10 @@ let next_action env evd (pgm : constr) : template_monad * _ =
     match args with
     | name::ty::[] -> (TmVariable (name,ty) , universes)
     | _ -> monad_failure "tmVariable" 2
+  else if eq_gr ptmSymbol then
+    match args with
+    | name :: ty :: [] -> (TmSymbol (name, ty), universes)
+    | _ -> monad_failure "tmSymbol" 2
   else if eq_gr ttmInductive then
     match args with
     | inferu :: mind::[] -> (TmMkInductive (inferu, mind), universes)

@@ -365,6 +365,17 @@ let rec run_template_program_rec ~poly ?(intactic=false) (k : Constr.t Plugin_co
       Declare.declare_variable ~typing_flags:None ~name ~kind (SectionLocalAssum { typ; impl=Glob_term.Explicit; univs=empty_mono_univ_entry });
       let env = Global.env () in
       k ~st env evm (Lazy.force unit_tt)
+ | TmSymbol (name, typ) ->
+    if intactic then not_in_tactic "tmSymbol"
+    else
+      let name = unquote_ident (reduce_all env evm name) in
+      let udecl = UState.default_univ_decl in
+      let univs = Evd.check_univ_decl ~poly evm udecl in
+      let entry = Declare.symbol_entry ~univs ~unfold_fix:false typ in
+      let kn = Declare.declare_constant ~name ~kind:Decls.IsSymbol (Declare.SymbolEntry entry) in
+      let () = Declare.assumption_message name in
+      let env = Global.env () in
+      k ~st env evm (Constr.mkConstU (kn, UVars.Instance.empty))
   | TmDefinition (opaque,name,s,typ,body) ->
     if intactic
     then not_in_tactic "tmDefinition"
