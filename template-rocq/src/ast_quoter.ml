@@ -103,6 +103,7 @@ struct
   let quote_qvar q =
     match Sorts.QVar.repr q with
     | Sorts.QVar.Var i -> BasicAst.QVar.var (quote_int i)
+    | Sorts.QVar.Global _ -> CErrors.anomaly Pp.(str "Global sort variables cannot be quoted yet.")
     | Sorts.QVar.Unif _ -> CErrors.anomaly (Pp.str "Cannot quote a non-instantiated quality variable")
 
   let quote_quality q =
@@ -216,7 +217,7 @@ struct
   let quote_abstract_univ_context uctx : quoted_abstract_univ_context =
     let {UVars.quals = qnames; UVars.univs = unames} = UVars.AbstractContext.names uctx in
     let qnames = CArray.map_to_list quote_name qnames in
-    let levels = CArray.map_to_list quote_name unames in
+    let unames = CArray.map_to_list quote_name unames in
     let constraints = UVars.UContext.constraints (UVars.AbstractContext.repr uctx) in
     (Universes0.mk_bound_names qnames unames, quote_univ_constraints constraints)
 
