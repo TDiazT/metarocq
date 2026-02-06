@@ -237,7 +237,8 @@ struct
   let quote_qvar q =
     match Sorts.QVar.repr q with
     | Sorts.QVar.Var i -> constr_mkApp (qvVar, [| quote_int i |])
-    | Sorts.QVar.Unif _ -> CErrors.anomaly (str "Non-instanciated quality variables cannot be quoted.")
+    | Sorts.QVar.Global _ -> CErrors.anomaly (str "Global sort variables cannot be quoted yet.")
+    | Sorts.QVar.Unif _ -> CErrors.anomaly (str "Non-instantiated quality variables cannot be quoted.")
 
   let quote_quality q =
     let open Sorts.Quality in

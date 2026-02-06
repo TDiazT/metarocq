@@ -759,14 +759,14 @@ Section Lookups.
     | _ => None
     end.
 
-  Definition lookup_ind_type ind i (u : list Level.t) :=
+  Definition lookup_ind_type ind i u :=
     match lookup_ind_decl ind i with
     |None => None
     |Some res =>
        Some (subst_instance u (snd res).(ind_type))
     end.
 
-  Definition lookup_ind_type_cstrs ind i (u : list Level.t) :=
+  Definition lookup_ind_type_cstrs ind i u :=
     match lookup_ind_decl ind i with
     |None => None
     |Some res =>
