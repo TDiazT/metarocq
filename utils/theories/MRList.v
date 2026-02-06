@@ -1065,6 +1065,20 @@ Proof.
     * destruct H.
 Qed.
 
+Lemma In_unfold {A} (f : nat -> A) x n :
+  In x (unfold n f) <-> exists k, k < n /\ (x = f k).
+Proof using Type.
+  induction n; cbn.
+  - split; move => [] n []. lia.
+  - rewrite in_app_iff IHn.
+    split.
+    + intros [(k & h & e) | [e | []]]; eauto.
+    + intros (k & h & e).
+      destruct (lt_dec k n); eauto.
+      assert (k = n) as -> by lia.
+      right. now left.
+Qed.
+
 Lemma forallb_unfold {A} (f : A -> bool) (g : nat -> A) n :
   (forall x, x < n -> f (g x)) ->
   forallb f (unfold n g).

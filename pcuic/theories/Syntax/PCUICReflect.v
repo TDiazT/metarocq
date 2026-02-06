@@ -214,7 +214,7 @@ Proof.
   end.
   - apply reflectEq_andb_left.
     { now eapply reflect_prop_list. }
-  - destruct (eqb_spec ind indn); t => /=.
+  - destruct (eqb_spec ci ci0); t => /=.
     destruct (eqb_spec (puinst p) (puinst p0)); t'.
     destruct X as [? []]. red in X0.
     destruct (r (preturn p0)); t'.

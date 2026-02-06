@@ -112,7 +112,7 @@ Proof using P Pcmp cf.
   intros wfΣ ext qual_sub_conv univ_sub_conv univ_sub_pb sort_sub_conv sort_sub_pb t t'.
   induction t in napp, t', pb, pb', univ_sub_pb, sort_sub_pb, t' |- * using PCUICInduction.term_forall_list_ind;
     try (inversion 1; subst; constructor;
-         eauto using cmp_instance_impl'; fail).
+         eauto using cmp_binder_annot_impl', cmp_instance_impl'; fail).
   - inversion 1; subst; constructor.
     eapply All2_impl'; tea.
     eapply All_impl; eauto.
@@ -121,7 +121,8 @@ Proof using P Pcmp cf.
   - inversion 1; subst; constructor.
     eapply cmp_global_instance_weaken_env. 5:eauto. all:eauto.
   - inversion 1; subst; destruct X as [? [? ?]]; constructor; eauto.
-    * destruct X2 as [? [? ?]].
+    * unfold eq_case_info in *. solve_all. eauto using cmp_rel_impl'.
+    * destruct X3 as [? [? ?]].
       constructor; intuition auto; solve_all.
       + eauto using cmp_instance_impl'.
     * eapply All2_impl'; tea.
@@ -130,11 +131,11 @@ Proof using P Pcmp cf.
   - inversion 1; subst; constructor.
     eapply All2_impl'; tea.
     eapply All_impl; eauto.
-    cbn. intros x [? ?] y (?&?&?&?). repeat split; eauto.
+    cbn. intros x [[? ?] ?] y (?&?&?&?). repeat split; eauto using cmp_binder_annot_impl'.
   - inversion 1; subst; constructor.
     eapply All2_impl'; tea.
     eapply All_impl; eauto.
-    cbn. intros x [? ?] y (?&?&?&?). repeat split; eauto.
+    cbn. intros x [[? ?] ?] y (?&?&?&?). repeat split; eauto using cmp_binder_annot_impl'.
   - inversion 1; subst; constructor.
     depelim X1; constructor; cbn in X; intuition eauto. solve_all.
 Qed.

@@ -11,7 +11,7 @@ Definition tFixCoFix (b:FixCoFix) := if b then tFix else tCoFix.
 
 Definition nl_mfix mfix := map (map_def_anon nl nl) mfix.
 
-Definition subst_instance_mfix (mfix : list (def term)) u := map (map_def (subst_instance u) (subst_instance u)) mfix.
+Definition subst_instance_mfix (mfix : list (def term)) u := map (subst_instance_def _ u) mfix.
 
 Definition inst_mfix mfix σ := map (map_def (inst σ) (inst (up (List.length mfix) σ))) mfix.
 

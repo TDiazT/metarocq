@@ -218,18 +218,18 @@ Proof.
     ].
     + dependent destruction e. simpl in *.
       destruct (nth_error (pparams p0) n) as [par|] eqn:enth. 2: discriminate.
-      destruct e.
+      destruct e0.
       induction a in n, par, enth, ih, vp |- *. 1: rewrite enth. 1: assumption.
       destruct n.
       * simpl in *. apply some_inj in enth. subst.
         intuition eauto.
       * simpl in *. eapply IHa. all: eauto.
     + dependent destruction e. simpl in *.
-      eapply ih; eauto. apply e.
+      eapply ih; eauto. apply e0.
     + dependent destruction e. simpl in *.
       destruct nth_error eqn:nth; [|congruence].
-      eapply All2_nth_error_Some in e1; eauto.
-      destruct e1 as (?&->&_&eq).
+      eapply All2_nth_error_Some in e2; eauto.
+      destruct e2 as (?&->&_&eq).
       eauto.
     + dependent destruction e. simpl in *.
       destruct (nth_error mfix n) as [[na ty bo ra]|] eqn:e1. 2: discriminate.

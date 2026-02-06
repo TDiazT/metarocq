@@ -3,10 +3,6 @@ From Stdlib Require Import ssreflect.
 From MetaRocq.Utils Require Import utils.
 From MetaRocq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICInduction.
 
-#[global]
-Instance subst_instance_list A `{UnivSubst A} : UnivSubst (list A) :=
-  fun u => List.map (subst_instance u).
-
 Lemma subst_instance_instance_length (u1 : Instance.t) u2 :
   Instance.eq_length (subst_instance u2 u1) u1.
 Proof.
@@ -125,8 +121,17 @@ Proof.
   unfold test_def_gen; intros; rtoProp. auto.
 Qed.
 
+Lemma closed_subst_case_info u ci :
+  closedq_rel 0 ci.(ci_relevance) ->
+  map_case_info (subst_instance u) ci = ci.
+Proof.
+  intro. unfold map_case_info.
+  destruct ci; cbn; f_equal.
+  by apply closedq_relevance_subst_instance.
+Qed.
+
 #[global]
-Hint Resolve closed_subst_def_name closed_subst_def_type closed_subst_def_body : substu.
+Hint Resolve closed_subst_def_name closed_subst_def_type closed_subst_def_body closed_subst_case_info : substu.
 
 Lemma closed_subst_instance u t
   : closedu 0 t -> closedq 0 t -> subst_instance u t = t.

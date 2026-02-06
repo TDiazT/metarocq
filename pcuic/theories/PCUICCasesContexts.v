@@ -37,11 +37,19 @@ Qed.
 
 Lemma eq_names_subst_instance nas Γ u :
   eq_names nas Γ ->
-  eq_names nas (subst_instance u Γ).
+  eq_names (subst_instance u nas) (subst_instance u Γ).
 Proof.
   induction 1.
   * constructor.
-  * rewrite /subst_instance /=. constructor; auto.
+  * rewrite r /subst_instance /=. constructor; auto.
+Qed.
+
+Lemma eq_binder_annot_subst_instance u na na' :
+  eq_binder_annot na na' ->
+  eq_binder_annot na@[u] na'@[u].
+Proof.
+  cbv -[binder_relevance subst_instance_relevance].
+  cbn. congruence.
 Qed.
 
 (* Lemma All2_compare_decls_subst pars n Γ i :
@@ -54,7 +62,7 @@ Proof.
   induction 1.
   * constructor.
   * cbn. constructor; auto. destruct r; constructor; auto.
-    all:cbn; subst; reflexivity.
+    all: cbn; by apply eq_binder_annot_subst_instance.
 Qed.
 
 
@@ -116,6 +124,7 @@ Lemma inst_case_predicate_context_eq {mdecl idecl ind p} :
   inst_case_predicate_context p.
 Proof.
   intros a.
+  unfold inst_case_predicate_context, case_predicate_context, case_predicate_context_gen, pre_case_predicate_context_gen.
   eapply map2_set_binder_name_alpha_eq.
   { eapply eq_names_subst_context, eq_names_subst_instance.
     eapply All2_map_left. eapply All2_refl. reflexivity. }
@@ -170,9 +179,10 @@ Qed.
 
 Lemma All2_eq_binder_subst_instance (l : list (binder_annot name)) u (Γ : context) :
   All2 (fun x y => eq_binder_annot x y.(decl_name)) l Γ ->
-  All2 (fun x y => eq_binder_annot x y.(decl_name)) l (subst_instance u Γ).
+  All2 (fun x y => eq_binder_annot x y.(decl_name)) (subst_instance u l) (subst_instance u Γ).
 Proof.
   induction 1; rewrite ?subst_context_snoc //; constructor; auto.
+  by apply eq_binder_annot_subst_instance.
 Qed.
 
 Lemma inst_case_branch_context_eq {ind mdecl cdecl p br} :

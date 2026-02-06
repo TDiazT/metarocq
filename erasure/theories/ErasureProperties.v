@@ -321,13 +321,13 @@ Proof.
   - cbn. econstructor.
     eapply H in X3; eauto. apply X3.
     cbn. econstructor. eauto.
-    eapply lift_typing_fu_impl with (1 := X0) => // ?? HT; eauto using relevance_subst_opt.
+    eapply lift_typing_fu_impl with (1 := X0) => // ?? HT; eauto using relevance_subst.
     now apply typing_subst_instance.
   - cbn. econstructor.
     now edestruct X1; tea; eauto.
     eapply H in X3; eauto. exact X3.
     cbn. econstructor. eauto.
-    eapply lift_typing_fu_impl with (1 := X0) => // ?? HT; eauto using relevance_subst_opt.
+    eapply lift_typing_fu_impl with (1 := X0) => // ?? HT; eauto using relevance_subst.
     now apply typing_subst_instance.
   - unfold subst_instance.
     cbn [subst_instance_constr]. econstructor; eauto.

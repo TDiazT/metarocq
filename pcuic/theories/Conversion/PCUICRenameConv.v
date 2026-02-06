@@ -96,16 +96,16 @@ Proof.
         f_equal; solve_all.
   - simpl. f_equal.
     rewrite length_map.
-    generalize #|m|. intro k.
-    induction X. 1: reflexivity.
-    destruct p, x. unfold map_def in *.
-    simpl in *. f_equal. all: easy.
+    set mlen := #|m|.
+    rewrite !map_map. solve_all.
+    unfold subst_instance_def, map_def, map_def_gen; cbn.
+    f_equal; easy.
   - simpl. f_equal.
     rewrite length_map.
-    generalize #|m|. intro k.
-    induction X. 1: reflexivity.
-    destruct p, x. unfold map_def in *.
-    simpl in *. f_equal. all: easy.
+    set mlen := #|m|.
+    rewrite !map_map. solve_all.
+    unfold subst_instance_def, map_def, map_def_gen; cbn.
+    f_equal; easy.
   - simpl. f_equal. solve_all.
 Qed.
 
@@ -200,7 +200,7 @@ Lemma map_vass_map_def g l r :
         (mapi (fun i (d : def term) => vass (dname d) (lift0 i (dtype d))) l)).
 Proof.
   rewrite mapi_mapi mapi_map. apply mapi_ext.
-  intros. unfold map_decl, vass; simpl; f_equal.
+  intros. unfold map_decl, map_decl_gen, vass; simpl; f_equal.
   sigma. rewrite -Upn_ren. now rewrite shiftn_Upn.
 Qed.
 
@@ -237,7 +237,7 @@ Proof using Type.
       all: eauto.
   - simpl. constructor. all: eauto.
     * rewrite /rename_predicate.
-      destruct X; destruct e as [? [? [ectx ?]]].
+      destruct X; destruct e0 as [? [? [ectx ?]]].
       rewrite (All2_length ectx). red.
       intuition auto; simpl; solve_all.
     * red in X0. unfold eq_branches, eq_branch in *. solve_all.
@@ -326,7 +326,7 @@ Qed.
 
 Lemma rename_closed_decl k f d : closed_decl k d -> map_decl (rename (shiftn k f)) d = d.
 Proof using Type.
-  rewrite /map_decl.
+  rewrite /map_decl/map_decl_gen.
   destruct d as [? [] ?] => /=.
   - move/andP=> [] clt clty.
     rewrite !rename_closedn //.
@@ -662,8 +662,8 @@ Context `{cf : checker_flags}.
 Lemma rename_context_subst_instance f u Γ :
   rename_context f (subst_instance u Γ) =
   subst_instance u (rename_context f Γ).
-Proof using Type. unfold rename_context.
-  rewrite fold_context_k_map // [subst_instance _ _]map_fold_context_k.
+Proof using Type. unfold rename_context, fold_context_k, subst_instance, subst_instance_context, map_context_gen.
+  rewrite fold_context_gen_k_map // map_fold_context_gen_k /id /=.
   now setoid_rewrite rename_subst_instance.
 Qed.
 
@@ -726,7 +726,7 @@ Proof using Type.
   induction ctx in ctx' |- *; destruct ctx'; simpl; auto.
   rewrite !rename_context_snoc /= /snoc.
   intros [=]. f_equal; auto.
-  rewrite /set_binder_name /map_decl /=; f_equal.
+  rewrite /set_binder_name /map_decl /map_decl_gen /=; f_equal.
   - rewrite map2_length // H0 //.
   - rewrite map2_length // H0 //.
 Qed.

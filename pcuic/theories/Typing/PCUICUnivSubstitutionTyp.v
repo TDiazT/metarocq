@@ -4,8 +4,8 @@ From MetaRocq.Utils Require Import utils.
 From MetaRocq.Common Require Import config Universes uGraph.
 From MetaRocq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICInduction PCUICOnFreeVars
      PCUICLiftSubst PCUICEquality PCUICUnivSubst
-     PCUICCases PCUICCumulativity PCUICTyping PCUICReduction PCUICWeakeningEnv PCUICWeakeningEnvTyp
-     PCUICClosed PCUICPosition PCUICGuardCondition PCUICUnivSubstitutionConv.
+     PCUICCases PCUICCasesContexts PCUICCumulativity PCUICTyping PCUICReduction PCUICWeakeningEnv PCUICWeakeningEnvTyp
+     PCUICClosed PCUICPosition PCUICGuardCondition PCUICUnivSubstitutionConv PCUICWfUniverses.
 
 From Equations.Prop Require Import DepElim.
 From Equations Require Import Equations.
@@ -41,7 +41,7 @@ Lemma cumulSpec_subst_instance (Σ : global_env_ext) Γ u A B pb univs :
   (Σ.1,univs) ;;; subst_instance u Γ ⊢ subst_instance u A ≤s[pb] subst_instance u B.
 Proof.
   intros e H. unfold cumulSpec.
-  induction H; intros; cbn; try solve [econstructor; intuition eauto].
+  induction H; intros; cbn; try solve [econstructor; intuition eauto using eq_binder_annot_subst_instance].
   all: lazymatch goal with
        | [ H : cumul_predicate_dep _ _ _ |- _ ] => apply cumul_predicate_undep in H
        | _ => idtac
@@ -52,13 +52,12 @@ Proof.
     unfold subst_instance.
     cbv [option_map subst_instance_context map_context map_decl] in *.
     rewrite nth_error_map; cbv [option_map].
-    repeat destruct ?; inversion pf; clear pf; try congruence.
-    match goal with H : Some _ = Some _ |- _ => inversion H; clear H end.
-    subst; cbn.
+    destruct nth_error => //=. injection pf as [= ->].
     reflexivity.
   - rewrite subst_instance_mkApps. cbn.
     rewrite iota_red_subst_instance.
-    change (bcontext br) with (bcotext (map_branch (subst_instance u) br)).
+    change (ci_npar ci) with (ci_npar (map_case_info (subst_instance u) ci)).
+    change (ci_ind ci) with (ci_ind (map_case_info (subst_instance u) ci)).
     eapply cumul_iota; eauto with pcuic.
     * rewrite nth_error_map Hbrs //.
     * simpl. now len.
@@ -117,10 +116,10 @@ Proof.
       repeat split; intuition eauto.
       rewrite -> subst_instance_app, inst_case_branch_context_subst_instance in *; eauto.
   - eapply cumul_Fix. apply All2_map. repeat toAll. eapply All2_impl. 1: tea.
-    cbn; intros; intuition eauto.
+    cbn; intros; intuition eauto using eq_binder_annot_subst_instance.
     rewrite -> subst_instance_app, fix_context_subst_instance in *; eauto.
   - eapply cumul_CoFix. apply All2_map. repeat toAll. eapply All2_impl. 1: tea.
-    cbn; intros; intuition eauto.
+    cbn; intros; intuition eauto using eq_binder_annot_subst_instance.
     rewrite -> subst_instance_app, fix_context_subst_instance in *; eauto.
   - eapply cumul_Prim. depelim e0; depelim X; cbn in H; cbn; noconf H; cbn in H; constructor; cbn -[Universe.make]; eauto.
     + rewrite -!subst_instance_universe_make.
@@ -165,7 +164,7 @@ Lemma conv_decls_subst_instance (Σ : global_env_ext) {Γ Γ'} u univs d d' :
   conv_decls cumulSpec0 (Σ.1, univs) (subst_instance u Γ) (subst_instance u Γ')
     (subst_instance u d) (subst_instance u d').
 Proof using Type.
-  intros valid Hd; depelim Hd; constructor; tas;
+  intros valid Hd; depelim Hd; constructor; auto using eq_binder_annot_subst_instance;
     eapply convSpec_subst_instance; tea.
 Qed.
 
@@ -176,7 +175,7 @@ Lemma cumul_decls_subst_instance (Σ : global_env_ext) {Γ Γ'} u univs d d' :
   cumul_decls cumulSpec0 (Σ.1, univs) (subst_instance u Γ) (subst_instance u Γ')
     (subst_instance u d) (subst_instance u d').
 Proof using Type.
-  intros valid Hd; depelim Hd; constructor; tas;
+  intros valid Hd; depelim Hd; constructor; auto using eq_binder_annot_subst_instance;
     (eapply convSpec_subst_instance || eapply cumulSpec_subst_instance); tea.
 Qed.
 
@@ -186,7 +185,7 @@ Lemma conv_ctx_subst_instance (Σ : global_env_ext) {Γ Γ'} u univs :
   conv_context cumulSpec0 (Σ.1, univs) (subst_instance u Γ) (subst_instance u Γ').
 Proof using Type.
   intros valid.
-  intros; eapply All2_fold_map, All2_fold_impl; tea => ? ? d d'.
+  intros; eapply All2_fold_map_gen, All2_fold_impl; tea => ? ? d d'.
   now eapply conv_decls_subst_instance.
 Qed.
 
@@ -196,7 +195,7 @@ Lemma subst_instance_ws_cumul_ctx_pb_rel (Σ : global_env_ext) {Γ Γ'} u univs 
   cumul_context cumulSpec0 (Σ.1, univs) (subst_instance u Γ) (subst_instance u Γ').
 Proof using Type.
   intros valid.
-  intros; eapply All2_fold_map, All2_fold_impl; tea => ? ? d d'.
+  intros; eapply All2_fold_map_gen, All2_fold_impl; tea => ? ? d d'.
   now eapply cumul_decls_subst_instance.
 Qed.
 
@@ -232,7 +231,6 @@ Hint Rewrite subst_instance_expand_lets_ctx : substu.
 Hint Resolve subst_instance_wf_predicate
   subst_instance_wf_branch subst_instance_wf_branches : pcuic.
 Hint Resolve All_local_env_over_subst_instance : univ_subst.
-Hint Resolve declared_inductive_wf_ext_wk declared_inductive_wf_global_ext : pcuic.
 
 
 Lemma typing_subst_instance :
@@ -260,32 +258,39 @@ Proof using Type.
     induction 1 using All_local_env_ind1. 1: constructor.
     intros. simpl.
     apply All_local_env_snoc. 1: now apply IHX.
-    eapply lift_typing_mapu with (u := None) => //; auto using relevance_subst_opt.
+    eapply lift_typing_mapu with (u := None)(r := Some _) => //; auto using relevance_subst.
 
   - intros n decl eq X u univs wfΣ' H. rewrite subst_instance_lift.
-    rewrite map_decl_type. econstructor; aa.
+    change ((decl_type decl)@[u]) with (decl_type (map_decl_gen (subst_instance u) (subst_instance u) decl)).
+    econstructor; aa.
     unfold subst_instance, map_context.
-    now rewrite nth_error_map eq.
+    rewrite nth_error_map eq //=.
   - intros l X Hl u univs wfΣ' H.
-    rewrite subst_instance_univ_super.
-    + econstructor.
-      * aa.
-      * now apply wf_sort_subst_instance.
+    econstructor; revgoals.
+    { apply cumul_Sort. apply subst_instance_univ_super. }
+    { constructor; eauto. apply wf_sort_subst_instance; eauto. by apply wf_sort_super. }
+    constructor.
+    * aa.
+    * now apply wf_sort_subst_instance.
   - intros n t0 b s1 s2 X X0 X1 X2 X3 u univs wfΣ' H.
-    rewrite product_subst_instance; aa. econstructor.
-    + eapply lift_typing_mapu with (tm := None) (u := Some _) => //;
-      auto using relevance_subst_opt.
+    econstructor; revgoals.
+    { apply cumul_Sort. apply product_subst_instance. }
+    { apply unlift_TypUniv in X0.
+      constructor; eauto. apply wf_sort_subst_instance; eauto. apply wf_sort_product; eapply typing_wf_sort; tea. apply X0. }
+    econstructor.
+    + eapply lift_typing_mapu with (tm := None) (u := Some _) (r := Some _) => //;
+      auto using relevance_subst.
     + eapply X3; eauto.
   - intros n t0 b bty X X0 X1 X2 X3 u univs wfΣ' H.
     econstructor.
-    + eapply lift_typing_mapu with (tm := None) (u := None) => //;
-      auto using relevance_subst_opt.
+    + eapply lift_typing_mapu with (tm := None) (u := None) (r := Some _) => //;
+      auto using relevance_subst.
     + eapply X3; aa.
   - intros n b b_ty b' b'_ty X X0 X1 X2 X3 u univs wfΣ' H.
     econstructor; eauto.
-    + eapply lift_typing_mapu with (tm := Some _) (u := None) => //;
-      auto using relevance_subst_opt.
-    + eapply X3; aa.
+    + eapply lift_typing_mapu with (tm := Some _) (u := None) (r := Some _)=> //;
+      auto using relevance_subst.
+    (* + eapply X3; aa. *)
   - intros t0 na A B s u X X0 X1 X2 X3 X4 X5 u0 univs wfΣ' H.
     rewrite subst_instance_subst. cbn. econstructor.
     + eapply X1; eauto.
@@ -313,6 +318,8 @@ Proof using Type.
     change (subst_instance i (preturn p)) with (preturn (subst_instance i p)).
     change (subst_instance i (pcontext p)) with (pcontext (subst_instance i p)).
     change (map_predicate _ _ _ _ _) with (subst_instance i p).
+    change (case_predicate_context ci mdecl idecl p)
+      with (case_predicate_context (map_case_info (subst_instance_relevance i) ci) mdecl idecl p).
     rewrite subst_instance_case_predicate_context.
     eapply type_Case with (p:=subst_instance i p)
                           (ps:=subst_instance_sort i u); eauto with pcuic.
@@ -354,19 +361,20 @@ Proof using Type.
     eassumption.
 
   - intros mfix n decl H H0 H1 X IHX X0 IHX0 wffix u univs wfΣ'.
-    rewrite (map_dtype _ (subst_instance u)). econstructor.
+    change ((dtype _)@[u]) with (dtype (subst_instance_def _ u decl)).
+    econstructor.
     + specialize (H1 u univs wfΣ' H2).
       rewrite subst_instance_app in H1.
       now eapply All_local_env_app_inv in H1 as [].
     + now eapply fix_guard_subst_instance.
-    + rewrite nth_error_map H0. reflexivity.
+    + rewrite nth_error_map H0 /=. reflexivity.
     + apply All_map, (All_impl IHX); simpl. intros d X1.
-      eapply lift_typing_mapu with (tm := None) (u := None); cbn; eauto using relevance_subst_opt.
+      eapply lift_typing_mapu with (tm := None) (u := None) (r := Some _); cbn; eauto using relevance_subst.
     + eapply All_map, (All_impl IHX0); simpl. intros d X1.
-      unfold map_def at 2, on_def_body. cbn.
+      unfold map_def, on_def_body. cbn.
       rewrite -fix_context_subst_instance /app_context -(subst_instance_app u (fix_context mfix) Γ) -/(app_context Γ _).
       rewrite -subst_instance_lift length_map.
-      eapply lift_typing_mapu with (tm := Some _) (u := None); cbn; eauto using relevance_subst_opt.
+      eapply lift_typing_mapu with (tm := Some _) (u := None) (r := Some _); cbn; eauto using relevance_subst.
     + red; rewrite <- wffix.
       unfold wf_fixpoint, wf_fixpoint_gen.
       f_equal.
@@ -376,19 +384,20 @@ Proof using Type.
       now rewrite subst_instance_check_one_fix.
 
   - intros mfix n decl H H0 H1 X IHX X0 IHX0 wffix u univs wfΣ'.
-    rewrite (map_dtype _ (subst_instance u)). econstructor.
+    change ((dtype _)@[u]) with (dtype (subst_instance_def _ u decl)).
+    econstructor.
     + specialize (H1 u univs wfΣ' H2).
       rewrite subst_instance_app in H1.
       now eapply All_local_env_app_inv in H1 as [].
     + now eapply cofix_guard_subst_instance.
     + rewrite nth_error_map H0. reflexivity.
     + apply All_map, (All_impl IHX); simpl. intros d X1.
-      eapply lift_typing_mapu with (tm := None) (u := None); cbn; eauto using relevance_subst_opt.
+      eapply lift_typing_mapu with (tm := None) (u := None) (r := Some _); cbn; eauto using relevance_subst.
     + eapply All_map, (All_impl IHX0); simpl. intros d X1.
-      unfold map_def at 2, on_def_body. cbn.
+      unfold map_def, on_def_body. cbn.
       rewrite -fix_context_subst_instance /app_context -(subst_instance_app u (fix_context mfix) Γ) -/(app_context Γ _).
       rewrite -subst_instance_lift length_map.
-      eapply lift_typing_mapu with (tm := Some _) (u := None); cbn; eauto using relevance_subst_opt.
+      eapply lift_typing_mapu with (tm := Some _) (u := None) (r := Some _); cbn; eauto using relevance_subst.
     + red; rewrite <- wffix.
       unfold wf_cofixpoint, wf_cofixpoint_gen.
       rewrite map_map_compose.
@@ -402,7 +411,8 @@ Proof using Type.
     + exact H0.
     + now rewrite subst_instance_prim_val_tag.
     + destruct p as [? []]; depelim X1; constructor; eauto.
-      * rewrite -subst_instance_universe_make. eapply wf_universe_subst_instance => //.
+      * rewrite -subst_instance_universe_make. eapply wf_universe_subst_instance_univ => //.
+        now eapply consistent_instance_ext_wf.
       * cbn -[Universe.make'] in hty.
         specialize (hty u univs).
         rewrite /subst_instance subst_instance_universe_make in hty. now eapply hty.
@@ -512,10 +522,10 @@ Lemma lift_typing_subst_instance_decl Σ Γ j c decl u :
   lift_typing typing (Σ.1, universes_decl_of_decl decl) Γ j ->
   consistent_instance_ext Σ (universes_decl_of_decl decl) u ->
   lift_typing typing Σ (subst_instance u Γ) {| j_term := option_map (subst_instance u) (j_term j); j_typ := subst_instance u (j_typ j);
-                                               j_univ := option_map (subst_instance u) (j_univ j); j_rel := j_rel j |}.
+                                               j_univ := option_map (subst_instance u) (j_univ j); j_rel := option_map (subst_instance u) (j_rel j) |}.
 Proof.
   intros wfΣ look Hj cu.
-  eapply lift_typing_fu_impl with (1 := Hj) => //; auto using relevance_subst_opt.
+  eapply lift_typing_fu_impl with (1 := Hj) => //; auto using relevance_subst.
   intros ?? Hs; now eapply typing_subst_instance_decl.
 Qed.
 
@@ -534,7 +544,7 @@ Lemma isTypeRel_subst_instance_decl Σ Γ T r c decl u :
   lookup_env Σ.1 c = Some decl ->
   isTypeRel (Σ.1, universes_decl_of_decl decl) Γ T r ->
   consistent_instance_ext Σ (universes_decl_of_decl decl) u ->
-  isTypeRel Σ (subst_instance u Γ) (subst_instance u T) r.
+  isTypeRel Σ (subst_instance u Γ) (subst_instance u T) (subst_instance u r).
 Proof using Type.
   apply lift_typing_subst_instance_decl.
 Qed.
@@ -554,7 +564,7 @@ Lemma wf_local_subst_instance Σ Γ ext u :
 Proof using Type.
   destruct Σ as [Σ φ]. intros X X0 X1. simpl in *.
   induction X1; cbn; constructor; auto.
-  all: eapply lift_typing_fu_impl with (1 := t0) => //= ?? Hs; auto using relevance_subst_opt.
+  all: eapply lift_typing_fu_impl with (1 := t0) => //= ?? Hs; auto using relevance_subst.
   all: eapply typing_subst_instance'' in Hs; eauto; apply X.
 Qed.
 
@@ -567,7 +577,7 @@ Lemma wf_local_subst_instance_decl Σ Γ c decl u :
 Proof using Type.
   destruct Σ as [Σ φ]. intros X X0 X1 X2.
   induction X1; cbn; constructor; auto.
-  all: eapply lift_typing_fu_impl with (1 := t0) => // ?? Hs; auto using relevance_subst_opt.
+  all: eapply lift_typing_fu_impl with (1 := t0) => // ?? Hs; auto using relevance_subst.
   all: eapply typing_subst_instance_decl in Hs; eauto; apply X.
 Qed.
 

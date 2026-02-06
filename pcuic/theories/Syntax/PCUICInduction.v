@@ -35,9 +35,9 @@ Lemma term_forall_list_ind :
     (forall s (u : Instance.t), P (tConst s u)) ->
     (forall (i : inductive) (u : Instance.t), P (tInd i u)) ->
     (forall (i : inductive) (n : nat) (u : Instance.t), P (tConstruct i n u)) ->
-    (forall (ind : case_info) (p : predicate term),
+    (forall (ci : case_info) (p : predicate term),
         tCasePredProp P P p -> forall c : term, P c -> forall l : list (branch term),
-        tCaseBrsProp P l -> P (tCase ind p c l)) ->
+        tCaseBrsProp P l -> P (tCase ci p c l)) ->
     (forall (s : projection) (t : term), P t -> P (tProj s t)) ->
     (forall (m : mfixpoint term) (n : nat), tFixProp P P m -> P (tFix m n)) ->
     (forall (m : mfixpoint term) (n : nat), tFixProp P P m -> P (tCoFix m n)) ->

@@ -864,15 +864,6 @@ Proof.
   * rewrite subst_context_snoc. constructor; auto.
 Qed.
 
-Lemma eq_names_subst_instance nas Γ u :
-  eq_names nas Γ ->
-  eq_names nas (subst_instance u Γ).
-Proof.
-  induction 1.
-  * cbn; auto.
-  * rewrite /subst_instance /=. constructor; auto.
-Qed.
-
 Lemma map2_set_binder_name_alpha_eq (nas : list aname) (Δ Δ' : context) :
   All2 (fun x y => x = (decl_name y)) nas Δ' ->
   TermEquality.eq_context_upto_names Δ Δ' ->
@@ -2136,15 +2127,6 @@ Proof.
   induction 1.
   * rewrite subst_context_nil. constructor.
   * rewrite subst_context_snoc. constructor; auto.
-Qed.
-
-Lemma eq_names_subst_instance_pcuic nas (Γ : context) u :
-  eq_names nas Γ ->
-  eq_names nas (subst_instance u Γ).
-Proof.
-  induction 1.
-  * cbn; auto.
-  * rewrite /subst_instance /=. constructor; auto.
 Qed.
 
 Lemma trans_case_branch_type {cf} {Σ : global_env_ext} {wfΣ : wf Σ} ci mdecl idecl cdecl i p br :

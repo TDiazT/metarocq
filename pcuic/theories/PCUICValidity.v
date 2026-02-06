@@ -236,7 +236,7 @@ Section Validity.
       pose proof (on_ctype onc) as Hc.
       apply isTypeRel_isType in Hc.
       eapply lift_typing_fu_impl with (f := fun t => _ (_ t)) (1 := Hc) => //= ?? Hs.
-      2: now eapply relevance_subst_opt.
+      2: now eapply relevance_subst.
       eapply instantiate_minductive in Hs; eauto.
       2:(destruct isdecl as [[] ?]; eauto).
       simpl in Hs.
@@ -301,7 +301,7 @@ Section Validity.
         lenpars lenargs cu]]]; eauto.
       2:eapply isdecl.p1.
       eapply lift_typing_fu_impl with (f := fun t => _ (_ t)) (1 := isdecl') => // ?? Hs.
-      2: now eapply relevance_subst_opt.
+      2: now eapply relevance_subst.
       unshelve epose proof (isdecl_ := declared_projection_to_gen isdecl); eauto.
       eapply (typing_subst_instance_decl _ _ _ _ _ _ _ wf isdecl_.p1.p1.p1) in Hs; eauto.
       simpl in Hs.

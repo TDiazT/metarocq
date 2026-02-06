@@ -55,6 +55,19 @@ Proof.
   now unfold eq_binder_annot; simpl; intros ->.
 Qed.
 
+Lemma cmp_rel_eq_eq r r' : cmp_rel eq r r' -> r = r'.
+Proof.
+  cbv -[binder_relevance]; cbn.
+  destruct r, r'; auto. now intros [=].
+Qed.
+
+Lemma banon_cmp_binder_annot na na' : banon na -> banon na' -> cmp_binder_annot eq na na' -> na = na'.
+Proof.
+  intros ->%banon_spec ->%banon_spec.
+  unfold cmp_binder_annot, BasicAst.cmp_binder_annot. cbn.
+  move/cmp_rel_eq_eq => <- //.
+Qed.
+
 Lemma nameless_eqctx_IH ctx ctx' :
   forallb (nameless_decl nameless) ctx ->
   forallb (nameless_decl nameless) ctx' ->
@@ -91,7 +104,7 @@ Proof.
   all: dependent destruction e.
   all: cbn in hu, hv ; destruct_andb ; anonify.
   all: try reflexivity.
-  all: try solve [ f_equal ; try ih ; try assumption; try now apply banon_eq_binder_annot].
+  all: try solve [ f_equal ; try ih ; try assumption; try now apply banon_cmp_binder_annot].
   - f_equal. cbn in hu, hv.
     revert args' hu hv a. induction l ; intros args' hu hv h.
     + destruct args' ; try solve [ inversion h ].
@@ -110,7 +123,10 @@ Proof.
   - f_equal ; try solve [ ih ].
     apply cmp_instance_eq. assumption.
   - f_equal ; try solve [ ih ].
-    * destruct e as [eqpar [eqinst [eqctx eqret]]].
+    * destruct e as (?ec & ?ec & ?ec).
+      destruct ci, ci'; cbn in *; f_equal; tas.
+      by apply cmp_rel_eq_eq.
+    * destruct e0 as [eqpar [eqinst [eqctx eqret]]].
       destruct X as [? [? ?]].
       destruct p, p'; simpl in *. f_equal.
       + apply All2_eq; solve_all.
@@ -127,12 +143,12 @@ Proof.
     unfold eq_mfixpoint in *. apply All2_eq. solve_all.
     destruct x, y; unfold test_def in *; destruct_andb; cbn in *; f_equal; try solve [ ih ].
     2: assumption.
-    now apply banon_eq_binder_annot.
+    now apply banon_cmp_binder_annot.
   - f_equal ; try solve [ ih ].
     unfold eq_mfixpoint in *. apply All2_eq. solve_all.
     destruct x, y; unfold test_def in *; destruct_andb; cbn in *; f_equal; try solve [ ih ].
     2: assumption.
-    now apply banon_eq_binder_annot.
+    now apply banon_cmp_binder_annot.
   - f_equal.
     destruct o; auto.
     f_equal. f_equal. cbn in X, hu, hv. rtoProp.
@@ -170,25 +186,13 @@ Proof.
           destruct (decl_body x); simpl in *; auto with bool.
         ++ eapply IHl. assumption.
   - simpl ; repeat (eapply andb_true_intro ; split) ; try assumption.
-    + induction m.
-      * reflexivity.
-      * cbn. eapply IHm. inversion X. subst. assumption.
-    + induction m.
-      * reflexivity.
-      * cbn. inversion X. subst. destruct H0.
-        repeat (eapply andb_true_intro ; split).
-        all: try assumption.
-        eapply IHm. assumption.
+    + apply All_forallb. solve_all.
+    + apply All_forallb. solve_all.
+      unfold test_def; cbn. auto.
   - simpl ; repeat (eapply andb_true_intro ; split) ; try assumption.
-    + induction m.
-      * reflexivity.
-      * cbn. eapply IHm. inversion X. subst. assumption.
-    + induction m.
-      * reflexivity.
-      * cbn. inversion X. subst. destruct H0.
-        repeat (eapply andb_true_intro ; split).
-        all: try assumption.
-        eapply IHm. assumption.
+    + apply All_forallb. solve_all.
+    + apply All_forallb. solve_all.
+      unfold test_def; cbn. auto.
   - cbn. solve_all.
 Qed.
 
@@ -284,7 +288,7 @@ Proof.
   - econstructor. all: try solve [ eauto ].
     eapply cmp_global_instance_nl; eauto.
   - econstructor; eauto.
-    + red. destruct e; intuition auto; simpl.
+    + red. destruct e0; intuition auto; simpl.
       * solve_all.
       * eapply eq_context_nl_IH; tea.
       * solve_all.
@@ -545,18 +549,14 @@ Proof.
         ++ destruct x. simpl in *. unfold nl_branch, map_branch.
           simpl. f_equal; solve_all.
         ++ apply IHX0.
-  - simpl. f_equal. induction X ; try reflexivity.
-    simpl. rewrite IHX. f_equal.
-    destruct p as [h1 h2].
-    destruct x. simpl in *.
-    unfold map_def, map_def_anon. cbn.
-    rewrite h1 h2. reflexivity.
-  - simpl. f_equal. induction X ; try reflexivity.
-    simpl. rewrite IHX. f_equal.
-    destruct p as [h1 h2].
-    destruct x. simpl in *.
-    unfold map_def, map_def_anon. cbn.
-    rewrite h1 h2. reflexivity.
+  - simpl. f_equal.
+    solve_all.
+    unfold map_def_anon, subst_instance_def, map_def_gen; cbn.
+    f_equal; eauto.
+  - simpl. f_equal.
+    solve_all.
+    unfold map_def_anon, subst_instance_def, map_def_gen; cbn.
+    f_equal; eauto.
   - simpl. f_equal. solve_all.
 Qed.
 
@@ -843,16 +843,12 @@ Lemma nlctx_subst_instance :
     nlctx (subst_instance u Γ) = subst_instance u (nlctx Γ).
 Proof.
   intros u Γ.
-  rewrite /subst_instance /=.
-  induction Γ as [| [na [b|] B] Δ ih] in Γ |- *; rewrite /= ?subst_context_snoc /snoc /=
-    /map_decl.
-  - reflexivity.
-  - f_equal; auto.
-    rewrite /subst_decl /map_decl /= /map_decl_anon /=; repeat f_equal;
-    now rewrite nl_subst_instance.
-  - f_equal; [|apply ih].
-    rewrite /subst_decl /map_decl /= /map_decl_anon /=; repeat f_equal;
-    now rewrite nl_subst_instance.
+  rewrite /subst_instance/subst_instance_context/map_context_gen /nlctx /=.
+  solve_all. apply All_refl => d.
+  rewrite /map_decl_anon/map_decl_gen /= !option_map_two.
+  f_equal.
+  1: destruct decl_body => //=.
+  all: rewrite nl_subst_instance //.
 Qed.
 
 Lemma nlctx_subst_context :
@@ -864,7 +860,7 @@ Proof.
     /map_decl.
   - reflexivity.
   - simpl. f_equal; auto.
-    rewrite /subst_decl /map_decl /= /map_decl_anon /=; repeat f_equal.
+    rewrite /subst_decl /map_decl /map_decl_gen /= /map_decl_anon /=; repeat f_equal.
     * now rewrite nl_subst; len.
     * now rewrite nl_subst; len.
   - simpl. f_equal; [|apply ih].
@@ -882,7 +878,7 @@ Proof.
     /map_decl.
   - reflexivity.
   - simpl. f_equal; auto.
-    rewrite /lift_decl /map_decl /= /map_decl_anon /=; repeat f_equal.
+    rewrite /lift_decl /map_decl /map_decl_gen /= /map_decl_anon /=; repeat f_equal.
     * now rewrite nl_lift; len.
     * now rewrite nl_lift; len.
   - simpl. f_equal; [|apply ih].
@@ -930,10 +926,8 @@ Qed.
 Lemma subst_instance_nlctx u ctx :
   subst_instance u (nlctx ctx) = nlctx (subst_instance u ctx).
 Proof.
-  induction ctx; cbnr.
-  f_equal. 2: apply IHctx.
-  clear. destruct a as [? [] ?]; unfold map_decl, map_decl_anon; cbn; f_equal.
-  all: now rewrite nl_subst_instance.
+  symmetry.
+  apply nlctx_subst_instance.
 Qed.
 
 Lemma map_anon_fold_context_k g g' ctx :
@@ -944,7 +938,7 @@ Proof.
   intros hg.
   rewrite !fold_context_k_alt map_mapi mapi_map.
   apply mapi_ext => i d.
-  rewrite /map_decl /map_decl_anon. len.
+  rewrite /map_decl/map_decl_gen /map_decl_anon. len.
   f_equal.
   - destruct (decl_body d) => /= //.
     f_equal. apply hg.
@@ -966,7 +960,7 @@ Lemma nl_subst_telescope s k ctx :
 Proof.
   rewrite /nlctx /subst_telescope.
   rewrite map_mapi mapi_map. apply mapi_ext => i d.
-  rewrite /map_decl_anon /map_decl; destruct d as [na [b|] ty]; cbn; f_equal;
+  rewrite /map_decl_anon /map_decl/map_decl_gen; destruct d as [na [b|] ty]; cbn; f_equal;
     now rewrite nl_subst.
 Qed.
 
@@ -1063,7 +1057,7 @@ Proof.
   unfold case_predicate_context, case_predicate_context_gen.
   simpl.
   rewrite /nlctx /=.
-  simpl. rewrite /forget_types map_map_compose.
+  simpl. rewrite /forget_types /subst_instance/subst_instance_list !map_map_compose/=.
   rewrite /pre_case_predicate_context_gen.
   rewrite map_map2. cbn.
   rewrite /ind_predicate_context /=.
@@ -1100,7 +1094,7 @@ Proof.
   unfold case_branch_context, case_branch_context_gen. simpl.
   rewrite /pre_case_branch_context_gen.
   rewrite /nlctx -nl_cstr_branch_context -nl_inst_case_context. cbn.
-  now rewrite map_map2 map2_map.
+  now rewrite map_map2 map2_map !map2_map_left /=.
 Qed.
 
 Lemma nl_case_branch_type ci mdecl idecl p br i cdecl :
@@ -1485,11 +1479,11 @@ Proof.
       unfold ondecl in *; solve_all.
       unfold nldecl; destruct x as [na [bod|] ty]; simpl; f_equal; auto.
       f_equal; eauto.
-  - f_equal. induction X; cbnr. f_equal; tas.
-    destruct p, x; unfold map_def_anon; simpl in *.
+  - f_equal.
+    solve_all. unfold map_def_anon; simpl in *.
     rewrite anonymize_two; congruence.
-  - f_equal. induction X; cbnr. f_equal; tas.
-    destruct p, x; unfold map_def_anon; simpl in *.
+  - f_equal.
+    solve_all. unfold map_def_anon; simpl in *.
     rewrite anonymize_two; congruence.
   - f_equal; solve_all.
 Qed.

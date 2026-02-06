@@ -105,7 +105,7 @@ Proof.
   induction Γ.
   - reflexivity.
   - autorewrite with sigma. rewrite IHΓ. f_equal.
-    destruct a. unfold inst_decl. unfold map_decl. simpl.
+    destruct a. unfold inst_decl. unfold map_decl, map_decl_gen. simpl.
     f_equal.
     + destruct decl_body. 2: reflexivity.
       simpl. f_equal. autorewrite with sigma.
@@ -295,12 +295,12 @@ Proof.
   - reflexivity.
   - unfold inst_context, snoc. rewrite fold_context_k_snoc0.
     unfold snoc. f_equal. all: auto.
-    unfold map_decl. simpl. unfold vass. f_equal.
+    unfold map_decl, map_decl_gen. simpl. unfold vass. f_equal.
     destruct t0 as (_ & s & ht & _). eapply typed_inst. all: eauto.
   - unfold inst_context, snoc. rewrite fold_context_k_snoc0.
     unfold snoc. f_equal. all: auto.
     destruct t0 as (hb & s & ht & _). cbn in hb.
-    unfold map_decl. simpl. unfold vdef. f_equal.
+    unfold map_decl, map_decl_gen. simpl. unfold vdef. f_equal.
     + f_equal. eapply typed_inst. all: eauto.
     + eapply typed_inst. all: eauto.
 Qed.
@@ -370,9 +370,11 @@ Proof.
       unfold inst_branch, map_branch. simpl in *.
       f_equal; solve_all; now rewrite upn_subst_instance.
   - f_equal. solve_all.
-    now rewrite upn_subst_instance.
+    rewrite /subst_instance_def /map_def_gen /=.
+    f_equal; solve_all; now rewrite upn_subst_instance.
   - f_equal; solve_all.
-    now rewrite upn_subst_instance.
+    rewrite /subst_instance_def /map_def_gen /=.
+    f_equal; solve_all; now rewrite upn_subst_instance.
 Qed.
 
 Lemma map_vass_map_def_inst g l s :
@@ -382,7 +384,7 @@ Lemma map_vass_map_def_inst g l s :
         (mapi (fun i (d : def term) => vass (dname d) (lift0 i (dtype d))) l)).
 Proof.
   rewrite mapi_mapi mapi_map. apply mapi_ext.
-  intros. unfold map_decl, vass; simpl; f_equal.
+  intros. unfold map_decl, map_decl_gen, vass; simpl; f_equal.
   rewrite !lift0_inst.
   now sigma.
 Qed.
@@ -568,7 +570,7 @@ Proof.
       rewrite closedn_subst_instance_context.
       rewrite (wf_predicate_length_pars wfp).
       now rewrite (declared_minductive_ind_npars decli).
-    * rewrite /map_decl /= /subst_decl /map_decl /=.
+    * rewrite /map_decl /= /subst_decl /map_decl /map_decl_gen /=.
       f_equal. len. rewrite -map_rev.
       rewrite subst_instance_mkApps.
       rewrite !subst_inst inst_assoc.
@@ -611,7 +613,7 @@ Qed.
 
 Lemma inst_closed_decl k f d : closed_decl k d -> map_decl (inst (up k f)) d = d.
 Proof.
-  rewrite /map_decl.
+  rewrite /map_decl/map_decl_gen.
   destruct d as [? [] ?] => /=.
   - move/andP=> [] clt clty.
     rewrite up_Upn !inst_closed //.
@@ -711,7 +713,7 @@ Proof.
   induction ctx in ctx' |- *; destruct ctx'; simpl; auto.
   rewrite !inst_context_snoc /= /snoc.
   intros [=]. f_equal; auto.
-  rewrite /set_binder_name /map_decl /=; f_equal.
+  rewrite /set_binder_name /map_decl/map_decl_gen /=; f_equal.
   - rewrite map2_length // H0 //.
   - rewrite map2_length // H0 //.
 Qed.
@@ -720,9 +722,9 @@ Lemma inst_context_subst_instance f u Γ :
   inst_context (subst_instance u ∘ f) (subst_instance u Γ) =
   subst_instance u (inst_context f Γ).
 Proof.
-  unfold inst_context.
-  rewrite fold_context_k_map // [subst_instance _ _]map_fold_context_k.
-  apply fold_context_k_ext => k x.
+  unfold inst_context, fold_context_k, subst_instance, subst_instance_context.
+  rewrite fold_context_gen_k_map // map_fold_context_gen_k /id /=.
+  apply fold_context_gen_k_ext => // k x.
   rewrite Upn_subst_instance.
   now rewrite inst_subst_instance.
 Qed.
@@ -895,9 +897,9 @@ Proof.
 Qed.
 
 #[global]
-Instance map_def_ext {A B} : Proper (`=1` ==> `=1` ==> `=1`) (@map_def A B).
+Instance map_def_ext {A B} : Proper (`=1` ==> `=1` ==> `=1` ==> `=1`) (@map_def_gen A B).
 Proof.
-  intros f g Hfg f' g' Hfg' x.
+  intros fn gn Hfgn f g Hfg f' g' Hfg' x.
   unfold map_def; destruct x; simpl.
   now rewrite Hfg Hfg'.
 Qed.
@@ -944,10 +946,10 @@ Proof.
   induction Δ as [|[na [b|] ty] Δ] in Γ |- *; simpl; auto;
     rewrite ?Upn_0 // ?inst_context_snoc IHΔ /=; len.
   - f_equal. now rewrite inst_context_subst /= -Upn_Upn.
-  - f_equal. rewrite inst_app_context /map_decl /= /app_context.
+  - f_equal. rewrite inst_app_context /map_decl/map_decl_gen /= /app_context.
     f_equal.
     * now rewrite up_Upn -Upn_Upn.
-    * rewrite /inst_context fold_context_k_tip /map_decl /=. do 2 f_equal.
+    * rewrite /inst_context fold_context_k_tip /map_decl/map_decl_gen /=. do 2 f_equal.
       now rewrite Upn_0.
 Qed.
 
@@ -1892,7 +1894,7 @@ Proof using Type.
       all: eauto.
   - simpl. constructor. all: eauto.
   * rewrite /inst_predicate.
-    destruct X; destruct e as [? [? [ectx ?]]].
+    destruct X; destruct e0 as [? [? [ectx ?]]].
     rewrite (All2_length ectx). red.
     intuition auto; simpl; solve_all.
   * unfold eq_branches, eq_branch in *; solve_all.
