@@ -57,7 +57,7 @@ Proof.
   rewrite closedn_ctx_app => /andP [] clpars /= clinds.
   rewrite /ind_predicate_context.
   rewrite /expand_lets_ctx /expand_lets_k_ctx.
-  rewrite !rename_context_snoc /= /map_decl /= /snoc. f_equal.
+  rewrite !rename_context_snoc /= /map_decl /map_decl_gen /= /snoc. f_equal.
   - f_equal. len.
     rewrite rename_mkApps /=. f_equal.
     rewrite shiftn_add.
@@ -667,7 +667,7 @@ Proof.
   - f_equal. rewrite rename_app_context /map_decl /= /app_context.
     f_equal.
     * now rewrite shiftn_add.
-    * rewrite /rename_context fold_context_k_tip /map_decl /=. do 2 f_equal.
+    * rewrite /rename_context fold_context_k_tip /map_decl /map_decl_gen /=. do 2 f_equal.
       now rewrite shiftn0.
 Qed.
 

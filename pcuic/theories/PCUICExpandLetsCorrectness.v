@@ -2767,15 +2767,6 @@ Proof.
   * rewrite subst_context_snoc. constructor; auto.
 Qed.
 
-Lemma eq_names_subst_instance_pcuic nas (Γ : context) u :
-  eq_names nas Γ ->
-  eq_names nas (subst_instance u Γ).
-Proof.
-  induction 1.
-  * cbn; auto.
-  * rewrite /subst_instance /=. constructor; auto.
-Qed.
-
 Lemma map_expand_lets_lift_cancel Γ n ts :
   n = #|Γ| ->
   map (expand_lets Γ) (map (lift0 n) ts) =
@@ -5046,7 +5037,7 @@ Proof.
     }
     { cbn. move: ind_sorts.
       rewrite /check_ind_sorts.
-      destruct Sort.to_quality => //; intuition auto; destruct indices_matter => //; 
+      destruct Sort.to_quality => //; intuition auto; destruct indices_matter => //;
       now eapply (trans_type_local_ctx (Σ := (Σ0, ind_universes m))). }
     { simpl ind_variance in *.
       move: onIndices. rewrite /ind_respects_variance.

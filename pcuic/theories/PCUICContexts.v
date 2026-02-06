@@ -165,7 +165,7 @@ Proof.
   induction Δ; simpl in *; intuition auto.
   { destruct Σ as [Σ univs]. eapply (wf_sort_subst_instance (Σ, ind_universes mdecl)); eauto. }
   destruct a as [na [b|] ty]; simpl; destruct X as (Hwfctx & Hj); split; eauto.
-  all: eapply lift_typing_fu_impl with (1 := Hj) => //= ?? Hs; auto using relevance_subst_opt.
+  all: eapply lift_typing_fu_impl with (1 := Hj) => //= ?? Hs; auto using relevance_subst.
   all: eapply instantiate_minductive in Hs; eauto.
   all: now rewrite subst_instance_app in Hs.
 Qed.
@@ -184,7 +184,7 @@ Proof.
   destruct a as [na [b|] ty]; simpl.
   2: destruct s => //=.
   all: destruct X as (Hwfctx & Hj); split; eauto.
-  all: eapply lift_typing_fu_impl with (1 := Hj) => //= ?? Hs; auto using relevance_subst_opt.
+  all: eapply lift_typing_fu_impl with (1 := Hj) => //= ?? Hs; auto using relevance_subst.
   all: eapply instantiate_minductive in Hs; eauto.
   all: now rewrite subst_instance_app in Hs.
 Qed.
@@ -730,15 +730,6 @@ Proof.
   induction 1.
   * cbn. constructor.
   * rewrite subst_context_snoc. constructor; auto.
-Qed.
-
-Lemma eq_names_subst_instance nas Γ u :
-  eq_names nas Γ ->
-  eq_names nas (subst_instance u Γ).
-Proof.
-  induction 1.
-  * cbn; auto.
-  * rewrite /subst_instance /=. constructor; auto.
 Qed.
 
 Lemma map2_set_binder_name_alpha_eq (nas : list aname) (Δ Δ' : context) :

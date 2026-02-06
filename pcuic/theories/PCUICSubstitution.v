@@ -112,7 +112,7 @@ Qed.
 
 Lemma subst_decl_closed n k d : closed_decl k d -> subst_decl n k d = d.
 Proof.
-  case: d => na [body|] ty; rewrite /subst_decl /map_decl /=.
+  case: d => na [body|] ty; rewrite /subst_decl /map_decl /map_decl_gen /=.
   - move/andb_and => [cb cty]. rewrite !subst_closedn //.
   - move=> cty; now rewrite !subst_closedn //.
 Qed.
@@ -146,7 +146,7 @@ Lemma map_vass_map_def_subst g l n k :
   (mapi (fun i d => map_decl (subst n (i + k)) d) (mapi (fun i (d : def term) => vass (dname d) (lift0 i (dtype d))) l)).
 Proof.
   rewrite mapi_mapi mapi_map. apply mapi_ext.
-  intros. unfold map_decl, vass; simpl; f_equal.
+  intros. unfold map_decl, map_decl_gen, vass; simpl; f_equal.
   rewrite commut_lift_subst_rec. 1: lia. f_equal; lia.
 Qed.
 
@@ -330,7 +330,7 @@ Proof.
   intros wfΣ.
   induction 1; auto; unfold subst_context, snoc; rewrite fold_context_k_snoc0;
     auto; unfold snoc;
-    f_equal; auto; unfold map_decl; simpl.
+    f_equal; auto; unfold map_decl, map_decl_gen; simpl.
   - destruct t0 as (_ & s & Ht & _). unfold vass. simpl. f_equal.
     eapply typed_subst; eauto. lia.
   - unfold vdef.
@@ -1551,25 +1551,25 @@ Qed.
     - apply red_proj_c; eauto.
     - apply red_fix_congr; eauto.
       solve_all. eapply All_All2; tea; simpl; solve_all.
-      * eapply a; tea; solve_all.
+      * eapply b2; tea; solve_all.
       * rewrite subst_fix_context.
         specialize (b1 Γ Δ (Γ' ,,, (fix_context m))).
         rewrite (subst_context_app' _ 0) !app_context_assoc /= in b1. len in b1.
         eapply b1; eauto; len; solve_all.
         { relativize #|m|; [erewrite on_ctx_free_vars_extend|]; len => //.
           rewrite onΓ. apply on_free_vars_fix_context. rewrite /test_def. solve_all.
-          now len in b2. }
+          now len in b4. }
         now rewrite -Nat.add_assoc addnP_shiftnP_k.
     - apply red_cofix_congr; eauto.
       solve_all. eapply All_All2; tea; simpl; solve_all.
-      * eapply a; tea; solve_all.
+      * eapply b2; tea; solve_all.
       * rewrite subst_fix_context.
         specialize (b1 Γ Δ (Γ' ,,, (fix_context m))).
         rewrite (subst_context_app' _ 0) !app_context_assoc /= in b1. len in b1.
         eapply b1; eauto; len; solve_all.
         { relativize #|m|; [erewrite on_ctx_free_vars_extend|]; len => //.
           rewrite onΓ. apply on_free_vars_fix_context. rewrite /test_def. solve_all.
-          now len in b2. }
+          now len in b4. }
         now rewrite -Nat.add_assoc addnP_shiftnP_k.
     - destruct pr as [? []] => //.
       eapply red_primArray_congr => //.

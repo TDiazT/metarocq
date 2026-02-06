@@ -210,7 +210,7 @@ Inductive term :=
 | tConst (k : kername) (ui : Instance.t)
 | tInd (ind : inductive) (ui : Instance.t)
 | tConstruct (ind : inductive) (n : nat) (ui : Instance.t)
-| tCase (indn : case_info) (p : predicate term) (c : term) (brs : list (branch term))
+| tCase (ci : case_info) (p : predicate term) (c : term) (brs : list (branch term))
 | tProj (p : projection) (c : term)
 | tFix (mfix : mfixpoint term) (idx : nat)
 | tCoFix (mfix : mfixpoint term) (idx : nat)
@@ -427,10 +427,11 @@ Instance subst_instance_constr : UnivSubst term :=
       tProd (subst_instance_aname u na) (subst_instance_constr u A) (subst_instance_constr u B)
   | tLetIn na b ty b' => tLetIn (subst_instance_aname u na) (subst_instance_constr u b)
                           (subst_instance_constr u ty) (subst_instance_constr u b')
-  | tCase ind p c brs =>
+  | tCase ci p c brs =>
+    let ci' := map_case_info (subst_instance_relevance u) ci in
     let p' := map_predicate (subst_instance_instance u) (subst_instance_constr u) (subst_instance_constr u) id p in
     let brs' := List.map (map_branch (subst_instance_constr u) id) brs in
-    tCase ind p' (subst_instance_constr u c) brs'
+    tCase ci' p' (subst_instance_constr u c) brs'
   | tProj p c => tProj p (subst_instance_constr u c)
   | tFix mfix idx =>
     let mfix' := List.map (subst_instance_def subst_instance_constr u) mfix in
@@ -477,10 +478,11 @@ Fixpoint closedq (k : nat) (t : term) : bool :=
   | tLambda na T M | tProd na T M => closedq_aname k na && closedq k T && closedq k M
   | tApp u v => closedq k u && closedq k v
   | tLetIn na b t b' => closedq_aname k na && closedq k b && closedq k t && closedq k b'
-  | tCase ind p c brs =>
+  | tCase ci p c brs =>
+    let ci' := closedq_rel k ci.(ci_relevance) in
     let p' := test_predicate_kq closed_instance_qualities closedq k p in
     let brs' := forallb (test_branch (closedq #|Instance.qualities p.(puinst)|) (closedq k)) brs in
-    p' && closedq k c && brs'
+    ci' && p' && closedq k c && brs'
   | tProj p c => closedq k c
   | tFix mfix idx =>
     forallb (test_def_gen (closedq_aname k) (closedq k) (closedq k)) mfix
@@ -1159,6 +1161,22 @@ Proof.
   apply map_branch_eq_spec; eauto.
 Qed.
 
+Lemma map_decl_gen_eqP_spec {A B} {P : A -> Type} {p : A -> bool}
+   {d} {f g : A -> B} fn gn :
+  ondecl P d ->
+  test_decl p d ->
+  (forall x, P x -> p x -> f x = g x) ->
+  (forall na, fn na = gn na) ->
+  map_decl_gen fn f d = map_decl_gen gn g d.
+Proof.
+  destruct d; cbn; intros [Pty Pbod] [pty pbody]%andb_and Hfg Hfngn.
+  unfold map_decl_gen; cbn in *; f_equal.
+  * eauto.
+  * destruct decl_body; cbn in *; eauto. f_equal.
+    eauto.
+  * eauto.
+Qed.
+
 Lemma map_decl_eqP_spec {A B} {P : A -> Type} {p : A -> bool}
    {d} {f g : A -> B} :
   ondecl P d ->
@@ -1166,11 +1184,9 @@ Lemma map_decl_eqP_spec {A B} {P : A -> Type} {p : A -> bool}
   (forall x, P x -> p x -> f x = g x) ->
   map_decl f d = map_decl g d.
 Proof.
-  destruct d; cbn; intros [Pty Pbod] [pty pbody]%andb_and Hfg.
-  unfold map_decl; cbn in *; cbv[map_decl_gen]; f_equal.
-  * destruct decl_body; cbn in *; eauto. f_equal.
-    eauto.
-  * eauto.
+  intros.
+  eapply map_decl_gen_eqP_spec; tea.
+  auto.
 Qed.
 
 Lemma map_context_eqP_spec {A B} {P : A -> Type} {p : A -> bool}

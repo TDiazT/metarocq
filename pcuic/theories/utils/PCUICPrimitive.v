@@ -269,6 +269,18 @@ Equations test_primq {term} (p : Quality.t -> bool) (t : term -> bool) (p : prim
 | p, pt, (primArray; primArrayModel ar) =>
   forallb pt ar.(array_value) && pt ar.(array_default) && pt ar.(array_type).
 
+Lemma test_primq_test_prim {term} fq (ft : term -> bool) p :
+  test_primq fq ft p = test_prim ft p.
+Proof.
+  destruct p => //.
+Qed.
+
+Lemma test_primu_test_prim {term} (ft : term -> bool) p :
+  test_primu (fun _ => true) ft p = test_prim ft p.
+Proof.
+  destruct p => //.
+Qed.
+
 Lemma onPrims_map_prop {term term'} R R' Re p p' P f : @tPrimProp term P p ->
   onPrims R Re p p' ->
   (forall x y, P x -> R x y -> R' (f x) (f y)) ->

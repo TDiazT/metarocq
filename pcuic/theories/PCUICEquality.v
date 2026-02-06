@@ -23,6 +23,15 @@ Implicit Types (cf : checker_flags).
 Definition cmp_quality_instance (cmp_quality : Quality.t -> Quality.t -> Prop) u u' :=
   Forall2 cmp_quality (Instance.qualities u) (Instance.qualities u').
 
+Definition cmp_rel cmp_qual r r' :=
+  match r, r' with
+  | Relevant, Relevant | Irrelevant, Irrelevant => True
+  | RelevanceVar q, RelevanceVar q' => cmp_qual (Quality.qVar q) (Quality.qVar q')
+  | (Relevant | Irrelevant | RelevanceVar _), _ => False
+  end.
+
+Definition cmp_binder_annot {A} cmp_qual := cmp_binder_annot (A := A) (B := A) (cmp_rel cmp_qual).
+
 Definition cmp_universe_instance (cmp_univ : Universe.t -> Universe.t -> Prop) u u' :=
   Forall2 (on_rel cmp_univ Universe.make') (Instance.universes u) (Instance.universes u').
 
@@ -91,7 +100,7 @@ Definition cmp_opt_variance cmp_qual cmp_univ pb v :=
   | AllIrrelevant => fun u u' =>
                       #|Instance.qualities u| = #|Instance.qualities u'| /\
                       #|Instance.universes u| = #|Instance.universes u'|
-  | Variance v => fun u u' => cmp_instance (cmp_qual Conv) (cmp_univ Conv) u u' \/ 
+  | Variance v => fun u u' => cmp_instance (cmp_qual Conv) (cmp_univ Conv) u u' \/
                             (cmp_quality_instance (cmp_qual Conv) u u' /\ cmp_universe_instance_variance cmp_univ pb v (Instance.universes u) (Instance.universes u'))
   end.
 
@@ -106,7 +115,7 @@ Qed.
 Lemma cmp_instance_variance cmp_qual cmp_univ pb v u u' :
   RelationClasses.subrelation (cmp_univ Conv) (cmp_univ pb) ->
   #|v| = #|Instance.universes u| ->
-  cmp_instance (cmp_qual Conv) (cmp_univ Conv) u u' -> 
+  cmp_instance (cmp_qual Conv) (cmp_univ Conv) u u' ->
   cmp_universe_instance_variance cmp_univ pb v (Instance.universes u) (Instance.universes u').
 Proof.
   intros Hsub Hlen Hu.
@@ -202,6 +211,38 @@ Lemma cmp_quality_instance_impl Q Q' :
   RelationClasses.subrelation (cmp_quality_instance Q) (cmp_quality_instance Q').
 Proof.
   intros HQ x y Hq. eapply Forall2_impl; tea; auto.
+Qed.
+
+Lemma cmp_rel_impl Q Q' :
+  RelationClasses.subrelation Q Q' ->
+  RelationClasses.subrelation (cmp_rel Q) (cmp_rel Q').
+Proof.
+  intros HQ x y H.
+  destruct x, y => //=.
+  apply HQ, H.
+Qed.
+
+Lemma cmp_rel_impl' Q Q' :
+  RelationClasses.subrelation Q Q' ->
+  forall (r r' : relevance), cmp_rel Q r r' -> cmp_rel Q' r r'.
+Proof.
+  apply cmp_rel_impl.
+Qed.
+
+Lemma cmp_binder_annot_impl {A} Q Q' :
+  RelationClasses.subrelation Q Q' ->
+  RelationClasses.subrelation (cmp_binder_annot (A := A) Q) (cmp_binder_annot Q').
+Proof.
+  intros HQ x y.
+  apply cmp_rel_impl, HQ.
+Qed.
+
+Lemma cmp_binder_annot_impl' Q Q' :
+  RelationClasses.subrelation Q Q' ->
+  forall (na na' : aname), cmp_binder_annot Q na na' -> cmp_binder_annot Q' na na'.
+Proof.
+  intros HQ x y.
+  apply cmp_rel_impl, HQ.
 Qed.
 
 Lemma cmp_universe_instance_impl R R' :
@@ -411,6 +452,11 @@ Proof.
   now transitivity y0.
 Qed.
 
+Definition eq_case_info eq_relevance ci ci' :=
+  ci.(ci_ind) = ci'.(ci_ind) ×
+  ci.(ci_npar) = ci'.(ci_npar) ×
+  eq_relevance ci.(ci_relevance) ci'.(ci_relevance).
+
 Definition eq_predicate (eq_term : term -> term -> Type) eq_quality eq_universe p p' :=
   All2 eq_term p.(pparams) p'.(pparams) ×
   cmp_instance eq_quality eq_universe p.(puinst) p'.(puinst) ×
@@ -422,16 +468,6 @@ Definition eq_branch (eq_term : term -> term -> Type) br br' :=
   eq_term br.(bbody) br'.(bbody).
 
 Definition eq_branches eq_term brs brs' := All2 (eq_branch eq_term) brs brs'.
-
-Definition cmp_rel cmp_qual r r' :=
-  match r, r' with
-  | Relevant, Relevant | Irrelevant, Irrelevant => True
-  | RelevanceVar q, RelevanceVar q' => cmp_qual (Quality.qVar q) (Quality.qVar q')
-  | (Relevant | Irrelevant | RelevanceVar _), _ => False
-  end.
-
-Definition cmp_binder_annot {A} cmp_qual (b b' : binder_annot A) : Prop :=
-  cmp_rel cmp_qual b.(binder_relevance) b'.(binder_relevance).
 
 Definition eq_mfixpoint eq_qual (eq_term : term -> term -> Type) mfix mfix' :=
   All2 (fun d d' =>
@@ -506,11 +542,12 @@ Inductive eq_term_upto_univ_napp Σ
     Σ ⊢ u <==[ Conv , 0 ] u' ->
     Σ ⊢ tLetIn na t ty u <==[ pb , napp ] tLetIn na' t' ty' u'
 
-| eq_Case : forall indn p p' c c' brs brs',
+| eq_Case : forall ci ci' p p' c c' brs brs',
+    eq_case_info (cmp_rel (cmp_quality Conv)) ci ci' ->
     eq_predicate (fun t t' => Σ ⊢ t <==[ Conv , 0 ] t') (cmp_quality Conv) (cmp_universe Conv) p p' ->
     Σ ⊢ c <==[ Conv , 0 ] c' ->
     eq_branches (fun t t' => Σ ⊢ t <==[ Conv , 0 ] t') brs brs' ->
-    Σ ⊢ tCase indn p c brs <==[ pb , napp ] tCase indn p' c' brs'
+    Σ ⊢ tCase ci p c brs <==[ pb , napp ] tCase ci' p' c' brs'
 
 | eq_Proj : forall p c c',
     Σ ⊢ c <==[ Conv , 0 ] c' ->
@@ -810,16 +847,23 @@ Qed.
 
 #[global]
 Polymorphic Instance cmp_rel_refl cmp_quality :
-  RelationClasses.Reflexive cmp_quality -> Reflexive (cmp_rel cmp_quality).
+  RelationClasses.Reflexive cmp_quality -> RelationClasses.Reflexive (cmp_rel cmp_quality).
 Proof.
   intros refl_quality r. destruct r; cbnr.
 Qed.
 
 #[global]
-Polymorphic Instance cmp_binder_annot_refl {A} cmp_quality :
-  RelationClasses.Reflexive cmp_quality -> Reflexive (@cmp_binder_annot A cmp_quality).
+Polymorphic Instance eq_case_info_refl cmp_quality :
+  RelationClasses.Reflexive cmp_quality -> CRelationClasses.Reflexive (eq_case_info cmp_quality).
 Proof.
-  intros refl_quality b. destruct b. cbv[cmp_binder_annot]. now apply cmp_rel_refl.
+  intros refl_quality ci. unfold eq_case_info. repeat split; cbnr.
+Qed.
+
+#[global]
+Polymorphic Instance cmp_binder_annot_refl {A} cmp_quality :
+  RelationClasses.Reflexive cmp_quality -> RelationClasses.Reflexive (@cmp_binder_annot A cmp_quality).
+Proof.
+  intros refl_quality b. destruct b. reflexivity.
 Qed.
 
 #[global]
@@ -829,7 +873,7 @@ Polymorphic Instance eq_mfixpoint_refl Rq Re :
   CRelationClasses.Reflexive (eq_mfixpoint Rq Re).
 Proof.
   intros hrq hre mfix.
-  apply All2_same. intuition auto; try reflexivity. now apply cmp_binder_annot_refl.
+  apply All2_same. intuition auto; try reflexivity.
 Qed.
 
 #[global]
@@ -890,7 +934,7 @@ Qed.
 
 #[global]
 Polymorphic Instance cmp_rel_sym cmp_quality :
-  RelationClasses.Symmetric cmp_quality -> Symmetric (cmp_rel cmp_quality).
+  RelationClasses.Symmetric cmp_quality -> RelationClasses.Symmetric (cmp_rel cmp_quality).
 Proof.
   intros sym_quality r r'. destruct r, r'; cbnr.
   all: try tauto.
@@ -899,7 +943,7 @@ Qed.
 
 #[global]
 Polymorphic Instance cmp_binder_annot_sym {A} cmp_quality :
-  RelationClasses.Symmetric cmp_quality -> Symmetric (@cmp_binder_annot A cmp_quality).
+  RelationClasses.Symmetric cmp_quality -> RelationClasses.Symmetric (@cmp_binder_annot A cmp_quality).
 Proof.
   intros sym_quality b1 b2. destruct b1, b2. cbv[cmp_binder_annot]. now apply cmp_rel_sym.
 Qed.
@@ -921,13 +965,12 @@ Proof.
     econstructor ; eauto ;
     try eapply Forall2_symP ; eauto ; easy
          ].
-  2-4: econstructor; eauto; apply cmp_binder_annot_sym; eauto.
   - econstructor.
     apply All2_sym. solve_all.
-  - solve_all. destruct e as (r & ? & eq & ?).
-    econstructor; rewrite ?e; unfold eq_predicate, eq_branches, eq_branch in *;
+  - solve_all. destruct e0 as (r & ? & eq & ?).
+    econstructor; unfold eq_case_info, eq_predicate, eq_branches, eq_branch in *;
       repeat split; eauto; destruct c as [cq cu].
-    2,3,4: now symmetry.
+    all: try now symmetry.
     all: eapply All2_sym; solve_all.
     apply All2_symP; solve_all. tc.
   - econstructor. unfold eq_mfixpoint in *.
@@ -987,7 +1030,7 @@ Qed.
 
 #[global]
 Polymorphic Instance cmp_rel_trans cmp_quality :
-  RelationClasses.Transitive cmp_quality -> Transitive (cmp_rel cmp_quality).
+  RelationClasses.Transitive cmp_quality -> RelationClasses.Transitive (cmp_rel cmp_quality).
 Proof.
   intros trans_quality r1 r2 r3. destruct r1, r2, r3; auto.
   all: try (intros; now cbn).
@@ -995,7 +1038,7 @@ Qed.
 
 #[global]
 Polymorphic Instance cmp_binder_annot_trans {A} cmp_quality :
-  RelationClasses.Transitive cmp_quality -> Transitive (@cmp_binder_annot A cmp_quality).
+  RelationClasses.Transitive cmp_quality -> RelationClasses.Transitive (@cmp_binder_annot A cmp_quality).
 Proof.
   intros trans_quality b1 b2 b3. destruct b1, b2, b3. cbv[cmp_binder_annot].
   now apply cmp_rel_trans.
@@ -1021,17 +1064,16 @@ Proof.
     dependent destruction e2 ; econstructor ; eauto ;
     try now etransitivity
          ].
-  2-4: dependent destruction e2; econstructor; eauto; eapply cmp_binder_annot_trans; eauto.
   - dependent destruction e2.
     econstructor.
     eapply All2_All_mix_left in X as h; eauto.
     eapply All2_trans'; tea.
     intros u v w [[IH]]. now eapply IH.
   - dependent destruction e2.
-    unfold eq_predicate, eq_branches, eq_branch in *.
+    unfold eq_case_info, eq_predicate, eq_branches, eq_branch in *.
     !!solve_all.
-    econstructor; unfold eq_predicate, eq_branches, eq_branch in *; solve_all; eauto.
-    2: now etransitivity.
+    econstructor; unfold eq_case_info, eq_predicate, eq_branches, eq_branch in *; solve_all; eauto.
+    all: try now etransitivity.
     all: eapply All2_trans'; tea; intros ??? [[IH]]; repeat split; eauto.
     * etransitivity; eassumption.
     * destruct p0, p1; etransitivity; eassumption.
@@ -1314,7 +1356,8 @@ Proof.
     eapply cmp_global_instance_impl. 4:eauto. all:eauto.
   - inversion 1; subst; constructor.
     eapply cmp_global_instance_impl. 4:eauto. all:eauto.
-  - inversion 1; subst; constructor; unfold eq_predicate, eq_branches, eq_branch in *; eauto; solve_all.
+  - inversion 1; subst; constructor; unfold eq_case_info, eq_predicate, eq_branches, eq_branch in *; eauto; solve_all.
+    * eapply cmp_rel_impl'; eauto.
     * eapply cmp_instance_impl'; eauto.
   - inversion 1; subst; constructor.
     eapply All2_impl'; tea.
@@ -1353,7 +1396,8 @@ Proof.
     eapply cmp_global_instance_empty_impl. 2:eauto. all:eauto.
   - inversion 1; subst; constructor.
     eapply cmp_global_instance_empty_impl. 2:eauto. all:eauto.
-  - inversion 1; subst; constructor; unfold eq_predicate, eq_branches, eq_branch in *; eauto; solve_all.
+  - inversion 1; subst; constructor; unfold eq_case_info, eq_predicate, eq_branches, eq_branch in *; eauto; solve_all.
+    * eapply cmp_rel_impl'; eauto.
     * eapply cmp_instance_impl'; eauto.
   - inversion 1; subst; constructor.
     eapply All2_impl'; tea.
@@ -1412,9 +1456,9 @@ Proof.
   induction u in n', v, n, k, e, pb |- * using term_forall_list_ind.
   all: dependent destruction e.
   all: try solve [cbn ; constructor ; try lih ; try assumption; solve_all].
-  - cbn. destruct e as (? & ? & e & ?).
-    constructor; unfold eq_predicate, eq_branches, eq_branch in *; simpl; !!solve_all.
-    * rewrite -?(All2_length e).
+  - cbn. destruct e0 as (? & ? & e0 & ?).
+    constructor; unfold eq_case_info, eq_predicate, eq_branches, eq_branch in *; simpl; !!solve_all.
+    * rewrite -?(All2_length e0).
       eapply hh; eauto.
     * rewrite (All2_length hh3). now eapply hh2.
   - cbn. constructor.
@@ -1507,9 +1551,9 @@ Proof.
     + constructor.
   - cbn. constructor. solve_all.
   - cbn.
-    destruct e as (? & ? & e & ?).
+    destruct e0 as (? & ? & e0 & ?).
     constructor ; unfold eq_predicate, eq_branches, eq_branch in *; simpl; try sih ; solve_all.
-    * rewrite -(All2_length e). eapply e2; eauto.
+    * rewrite -(All2_length e0). eapply e3; eauto.
     * rewrite (All2_length a0). now eapply b0.
   - cbn. constructor ; try sih ; eauto.
     pose proof (All2_length e). unfold eq_mfixpoint in *.
@@ -2161,8 +2205,9 @@ Proof.
     eapply cmp_global_instance_flip. 3:eauto. all:eauto.
   - inversion 1; subst; constructor.
     eapply cmp_global_instance_flip. 3:eauto. all:eauto.
-  - inversion 1; subst; constructor; unfold eq_predicate, eq_branches, eq_branch in *; eauto.
+  - inversion 1; subst; constructor; unfold eq_case_info, eq_predicate, eq_branches, eq_branch in *; eauto;
     solve_all.
+    * eapply flip_cmp_rel; eauto.
     * apply All2_sym; solve_all.
     * eapply cmp_instance_flip; eauto.
     * symmetry. solve_all.

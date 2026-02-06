@@ -1009,6 +1009,15 @@ Proof.
   induction 1; constructor; try inversion X0; intuition auto.
 Qed.
 
+Lemma All_unfold {A} (f : A -> Type) (g : nat -> A) n :
+  (forall x, x < n -> f (g x)) ->
+  All f (unfold n g).
+Proof.
+  intros fg.
+  induction n; simpl; auto.
+  apply All_app_inv; auto.
+Qed.
+
 Inductive OnOne2 {A : Type} (P : A -> A -> Type) : list A -> list A -> Type :=
 | OnOne2_hd hd hd' tl : P hd hd' -> OnOne2 P (hd :: tl) (hd' :: tl)
 | OnOne2_tl hd tl tl' : OnOne2 P tl tl' -> OnOne2 P (hd :: tl) (hd :: tl').

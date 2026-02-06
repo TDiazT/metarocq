@@ -1412,10 +1412,10 @@ Section Rho.
     move: onc. rewrite /inst_case_context subst_instance_cons subst_context_snoc /= => onc.
     depelim onc.
     f_equal; eauto.
-    rewrite !compose_map_decl.
+    rewrite !compose_map_decl /map_decl !compose_map_decl_gen.
     eapply ondecl_map in o.
     eapply ondecl_map in o.
-    eapply map_decl_eqP_spec; tea => t.
+    eapply map_decl_gen_eqP_spec; tea => t //=.
     cbn; intros IH onfv.
     rewrite Nat.add_0_r; len. len in IH.
     erewrite <-IH => //. specialize (IHctx onc).
@@ -1912,7 +1912,7 @@ Section Rho.
       f_equal. rewrite /map_fix !length_map !map_map_compose.
       red in X0. solve_all.
       move/andP: b => [] onty onbody.
-      erewrite a0; tea; auto.
+      erewrite b1; tea; auto.
       move/andP: b => [] onty onbody.
       assert (#|m| = #|fold_fix_context rho Γ [] m|). rewrite fold_fix_context_length /= //.
       erewrite <-b0; trea.
@@ -1926,7 +1926,7 @@ Section Rho.
       f_equal. rewrite /map_fix !length_map !map_map_compose.
       red in X0. solve_all.
       move/andP: b => [] onty onbody.
-      erewrite a0; tea; auto.
+      erewrite b1; tea; auto.
       move/andP: b => [] onty onbody.
       assert (#|m| = #|fold_fix_context rho Γ [] m|). rewrite fold_fix_context_length /= //.
       erewrite <-b0; trea.

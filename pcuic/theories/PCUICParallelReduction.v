@@ -839,16 +839,14 @@ Section ParallelReduction.
           now eapply on_contexts_app => //; eapply onctx_rel_pred1_refl.
     - constructor; auto.
       apply onctx_rel_pred1_refl => //.
-      unfold All2_prop_eq, on_Trel in *.
+      unfold All2_prop2_eq, on_Trel in *.
       eapply All_All2; eauto. simpl; intros. solve_all.
-      eapply a; tas.
       eapply b. eapply on_contexts_app; auto.
       now eapply onctx_rel_pred1_refl.
     - constructor; auto.
       apply onctx_rel_pred1_refl => //.
-      unfold All2_prop_eq, on_Trel in *.
+      unfold All2_prop2_eq, on_Trel in *.
       eapply All_All2; eauto. simpl; intros. solve_all.
-      eapply a; tas.
       eapply b. eapply on_contexts_app; auto.
       now eapply onctx_rel_pred1_refl.
     - constructor; eauto.

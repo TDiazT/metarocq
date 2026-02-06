@@ -156,19 +156,19 @@ Proof.
     rewrite !subst_context_alt !lift_context_alt !mapi_compose.
     apply mapi_ext=> n' x.
     destruct x as [na' [b'|] ty']; simpl.
-    * rewrite !mapi_length /lift_decl /subst_decl /= /map_decl /=; f_equal.
+    * rewrite !mapi_length /lift_decl /subst_decl /= /map_decl /map_decl_gen /=; f_equal.
       + f_equal. rewrite Nat.add_0_r distr_lift_subst_rec /=.
         lia_f_equal.
       + rewrite Nat.add_0_r distr_lift_subst_rec; simpl. lia_f_equal.
-    * rewrite !mapi_length /lift_decl /subst_decl /= /map_decl /=; f_equal.
+    * rewrite !mapi_length /lift_decl /subst_decl /= /map_decl /map_decl_gen /=; f_equal.
       rewrite Nat.add_0_r distr_lift_subst_rec /=.
       repeat (lia || f_equal).
   - rewrite -IHΓ.
-    rewrite lift_context_snoc /= // /lift_decl /subst_decl /map_decl /=.
+    rewrite lift_context_snoc /= // /lift_decl /subst_decl /map_decl /map_decl_gen /=.
     f_equal.
     rewrite lift_context_app. simpl.
     rewrite /app_context; lia_f_equal.
-    rewrite /lift_context // /fold_context_k /= /map_decl /=.
+    rewrite /lift_context // /fold_context_k /fold_context_gen_k /= /map_decl /map_decl_gen /=.
     now lia_f_equal.
 Qed.
 

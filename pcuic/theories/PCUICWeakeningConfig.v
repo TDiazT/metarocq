@@ -24,6 +24,7 @@ Proof.
   repeat match goal with
          | [ |- context[match ?x with _ => _ end] ] => is_var x; destruct x
          end; cbn => //=; try reflexivity.
+  all: try by intuition auto.
   repeat move => /andP[]; cbv [is_true]; intros; repeat (cbn in *; subst).
   reflexivity.
 Qed.

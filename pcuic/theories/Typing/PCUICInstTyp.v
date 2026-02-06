@@ -46,21 +46,14 @@ inst_context (⇑^n σ) l = l.
 Proof.
   intro Hclosed.
   unfold on_free_vars_ctx in Hclosed.
-  unfold inst_context, fold_context_k.
-  induction l; eauto.
-  cbn in *. rewrite alli_app in Hclosed. toProp Hclosed.
-  destruct Hclosed as [H Hclosed].
-  rewrite mapi_rec_app. rewrite List.distr_rev.
-  rewrite IHl; eauto.
-  cbn in *. f_equal.
-  toProp Hclosed. replace (#|List.rev l| + 0) with (#|List.rev l|) in * by lia.
-  destruct Hclosed as [Hclosed _].
-  destruct a; unfold map_decl; cbn.
-  unfold on_free_vars_decl in Hclosed.
-  unfold test_decl in Hclosed.
-  toProp Hclosed. cbn in Hclosed.
-  destruct Hclosed as [Hbody Htype].
-  f_equal.
+  unfold inst_context, fold_context_k, fold_context_gen_k.
+  rewrite <- (List.rev_involutive l) at 2.
+  f_equal. set l' := List.rev l in Hclosed |- *.
+  apply alli_Alli in Hclosed.
+  eapply Alli_mapi_id; tea; cbn. clear. intros k decl h.
+  rewrite /on_free_vars_decl/test_decl /map_decl_gen in h |- *.
+  toProp h. destruct h as [Hbody Htype].
+  destruct decl; cbn in *; f_equal.
   - destruct decl_body; eauto; cbn in *.
     f_equal. rewrite closedP_shiftnP in Hbody.
     rewrite <- Upn_Upn.

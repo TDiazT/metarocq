@@ -254,7 +254,7 @@ Module Lookup (T : Term) (E : EnvironmentSig T).
     apply QualitySet.union_spec; right.
     do 2 rewrite QualitySetFact.add_iff.
     rewrite QualitySetFact.singleton_iff; now repeat right.
-  Qed.    
+  Qed.
 
   Lemma global_ext_qprop_InSet Σ :
     QualitySet.In Quality.qProp (global_ext_qualities Σ).
@@ -327,8 +327,17 @@ Module Lookup (T : Term) (E : EnvironmentSig T).
   Definition wf_qvar Σ (qv : QVar.t) : Prop :=
     QualitySet.In (Quality.qVar qv) (global_ext_qualities Σ).
 
+  Definition wf_quality Σ (s : Quality.t) : Prop :=
+    Quality.on_quality (wf_qvar Σ) True s.
+
   Definition wf_sort Σ (s : sort) : Prop :=
     Sort.on_sort (wf_qvar Σ) (wf_universe Σ) True and s.
+
+  Definition wf_relevance Σ (r : relevance) : Prop :=
+    on_relevance (wf_qvar Σ) True r.
+
+  Definition wf_aname Σ (na : aname) : Prop :=
+    wf_relevance Σ na.(binder_relevance).
 
   Definition wf_universe_dec Σ u : {wf_universe Σ u} + {~wf_universe Σ u}.
   Proof.
@@ -393,12 +402,16 @@ Module EnvTyping (T : Term) (E : EnvironmentSig T) (TU : TermUtils T E).
   Definition lift_wf_term wf_term (j : judgment) := option_default wf_term (j_term j) (unit : Type) × wf_term (j_typ j).
   Notation lift_wf_term1 wf_term := (fun (Γ : context) => lift_wf_term (wf_term Γ)).
 
-  Definition lift_wfu_term wf_term wf_univ (j : judgment) := option_default wf_term (j_term j) (unit : Type) × wf_term (j_typ j) × option_default wf_univ (j_univ j) (unit : Type).
+  Definition lift_wfu_term wf_term wf_univ wf_rel (j : judgment) :=
+    option_default wf_term (j_term j) (unit : Type) × wf_term (j_typ j) ×
+    option_default wf_rel (j_rel j) (unit : Type) × option_default wf_univ (j_univ j) (unit : Type).
 
   Definition lift_wfb_term wfb_term (j : judgment) := option_default wfb_term (j_term j) true && wfb_term (j_typ j).
   Notation lift_wfb_term1 wfb_term := (fun (Γ : context) => lift_wfb_term (wfb_term Γ)).
 
-  Definition lift_wfbu_term wfb_term wfb_univ (j : judgment) := option_default wfb_term (j_term j) true && wfb_term (j_typ j) && option_default wfb_univ (j_univ j) true.
+  Definition lift_wfbu_term wfb_term wfb_univ wfb_rel (j : judgment) :=
+    option_default wfb_term (j_term j) true && wfb_term (j_typ j) &&
+    option_default wfb_rel (j_rel j) true && option_default wfb_univ (j_univ j) true.
 
   Definition lift_sorting checking sorting : judgment -> Type :=
     fun j => option_default (fun tm => checking tm (j_typ j)) (j_term j) (unit : Type) ×
@@ -456,18 +469,20 @@ Module EnvTyping (T : Term) (E : EnvironmentSig T) (TU : TermUtils T E).
     destruct j_term; cbn in *; auto.
   Defined.
 
-  Lemma lift_wfbu_term_f_impl (P Q : term -> bool) tm t u r :
-    forall f fu,
-    lift_wfbu_term P (P ∘ tSort) (Judge tm t u r) ->
+  Lemma lift_wfbu_term_f_impl (P Q : term -> bool) (Pr Qr : relevance -> bool) tm t u r :
+    forall f fu fr,
+    lift_wfbu_term P (P ∘ tSort) Pr (Judge tm t u r) ->
     (forall u, f (tSort u) = tSort (fu u)) ->
     (forall t, P t -> Q (f t)) ->
-    lift_wfbu_term Q (Q ∘ tSort) (Judge (option_map f tm) (f t) (option_map fu u) r).
+    (forall r, Pr r -> Qr (fr r)) ->
+    lift_wfbu_term Q (Q ∘ tSort) Qr (Judge (option_map f tm) (f t) (option_map fu u) (option_map fr r)).
   Proof.
     unfold lift_wfbu_term; cbn.
     intros. rtoProp.
     repeat split; auto.
-    1: destruct tm; cbn in *; auto.
-    destruct u; rewrite //= -H0 //. auto.
+    + destruct tm; cbn in *; auto.
+    + destruct r; cbn in *; auto.
+    + destruct u; rewrite //= -H0 //. auto.
   Defined.
 
   Lemma lift_wf_wfb_term (p : _ -> bool) j :
@@ -479,14 +494,15 @@ Module EnvTyping (T : Term) (E : EnvironmentSig T) (TU : TermUtils T E).
     destruct (reflect_option_default HP (j_term j)) => /= //; now constructor.
   Qed.
 
-  Lemma lift_wfu_wfbu_term (p : _ -> bool) (pu : _ -> bool) j :
-    reflectT (lift_wfu_term p pu j) (lift_wfbu_term p pu j).
+  Lemma lift_wfu_wfbu_term (p : _ -> bool) (pu : _ -> bool) (pr : _ -> bool) j :
+    reflectT (lift_wfu_term p pu pr j) (lift_wfbu_term p pu pr j).
   Proof.
-    set (HP := @reflectT_pred _ p); set (HPu := @reflectT_pred _ pu).
+    set (HP := @reflectT_pred _ p); set (HPu := @reflectT_pred _ pu); set (HPr := @reflectT_pred _ pr).
     rewrite /lift_wfu_term /lift_wfbu_term.
     destruct (HP (j_typ j)) => //;
     destruct (reflect_option_default HP (j_term j)) => /= //;
-    destruct (reflect_option_default HPu (j_univ j)) => /= //; now constructor.
+    destruct (reflect_option_default HPu (j_univ j)) => /= //;
+    destruct (reflect_option_default HPr (j_rel j)) => /= //; now constructor.
   Qed.
 
   Lemma unlift_TermTyp {Pc Ps tm ty u r} :
@@ -558,14 +574,14 @@ Module EnvTyping (T : Term) (E : EnvironmentSig T) (TU : TermUtils T E).
   Qed.
 
   Lemma lift_sorting_fu_it_impl {Pc Qc Ps Qs} {tm : option term} {t : term} {u r} :
-    forall f fu, forall tu: lift_sorting Pc Ps (Judge tm t u r),
+    forall f fu fr, forall tu: lift_sorting Pc Ps (Judge tm t u r),
     let s := tu.2.π1 in
-    option_default (fun rel => isSortRel s rel -> isSortRel (fu s) rel) r True ->
+    option_default (fun rel => isSortRel s rel -> isSortRel (fu s) (fr rel)) r True ->
     option_default (fun tm => Pc tm t -> Qc (f tm) (f t)) tm unit ->
     (Ps t s -> Qs (f t) (fu s)) ->
-    lift_sorting Qc Qs (Judge (option_map f tm) (f t) (option_map fu u) r).
+    lift_sorting Qc Qs (Judge (option_map f tm) (f t) (option_map fu u) (option_map fr r)).
   Proof.
-    intros ?? (? & ? & Hs & e & er) s Hr HPQc HPQs.
+    intros ??? (? & ? & Hs & e & er) s Hr HPQc HPQs.
     split.
     - destruct tm => //=. now apply HPQc.
     - eexists. split; [now apply HPQs|].
@@ -584,10 +600,10 @@ Module EnvTyping (T : Term) (E : EnvironmentSig T) (TU : TermUtils T E).
     lift_sorting Qc Qs (judgment_map f j).
   Proof.
     intro f.
-    replace (judgment_map f j) with (Judge (option_map f (j_term j)) (f (j_typ j)) (option_map id (j_univ j)) (j_rel j)).
-    2: unfold judgment_map; destruct j_univ => //.
+    replace (judgment_map f j) with (Judge (option_map f (j_term j)) (f (j_typ j)) (option_map id (j_univ j)) (option_map id (j_rel j))).
+    2: now unfold judgment_map; destruct j_univ, j_rel => //.
     intro tu.
-    apply lift_sorting_fu_it_impl with (fu := id) (tu := tu).
+    apply lift_sorting_fu_it_impl with (fu := id)(fr := id) (tu := tu).
     destruct tu as (? & s & ?); cbn; clear.
     destruct j_rel => //.
   Qed.
@@ -605,28 +621,28 @@ Module EnvTyping (T : Term) (E : EnvironmentSig T) (TU : TermUtils T E).
   Qed.
 
   Lemma lift_sorting_fu_impl {Pc Qc Ps Qs tm t u r} :
-    forall f fu,
+    forall f fu fr,
     lift_sorting Pc Ps (Judge tm t u r) ->
-    (forall r s, isSortRelOpt s r -> isSortRelOpt (fu s) r) ->
+    (forall r s, isSortRel s r -> isSortRel (fu s) (fr r)) ->
     (forall t T, Pc t T -> Qc (f t) (f T)) ->
     (forall t u, Ps t u -> Qs (f t) (fu u)) ->
-    lift_sorting Qc Qs (Judge (option_map f tm) (f t) (option_map fu u) r).
+    lift_sorting Qc Qs (Judge (option_map f tm) (f t) (option_map fu u) (option_map fr r)).
   Proof.
-    intros ?? tu Hr ??.
+    intros ??? tu Hr ??.
     apply lift_sorting_fu_it_impl with (tu := tu); auto.
-    1: destruct r => //=; apply Hr with (r := Some _).
+    1: by destruct r => //=; apply Hr.
     destruct tm => //=. auto.
   Qed.
 
   Lemma lift_typing_fu_impl {P Q tm t u r} :
-    forall f fu,
+    forall f fu fr,
     lift_typing0 P (Judge tm t u r) ->
     (forall t T, P t T -> Q (f t) (f T)) ->
     (forall u, f (tSort u) = tSort (fu u)) ->
-    (forall r s, isSortRelOpt s r -> isSortRelOpt (fu s) r) ->
-    lift_typing0 Q (Judge (option_map f tm) (f t) (option_map fu u) r).
+    (forall r s, isSortRel s r -> isSortRel (fu s) (fr r)) ->
+    lift_typing0 Q (Judge (option_map f tm) (f t) (option_map fu u) (option_map fr r)).
   Proof.
-    intros ?? HT HPQ Hf Hr.
+    intros ??? HT HPQ Hf Hr.
     apply lift_sorting_fu_impl with (1 := HT); tas.
     intros; rewrite -Hf; now apply HPQ.
   Qed.
@@ -664,11 +680,11 @@ Module EnvTyping (T : Term) (E : EnvironmentSig T) (TU : TermUtils T E).
     apply lift_typing_f_impl with (1 := HT) => //.
   Qed.
 
-  Lemma lift_typing_mapu {P} f fu {tm ty u r} :
+  Lemma lift_typing_mapu {P} f fu fr {tm ty u r} :
     lift_typing0 (fun t T => P (f t) (f T)) (Judge tm ty u r) ->
     (forall u, f (tSort u) = tSort (fu u)) ->
-    (forall r s, isSortRelOpt s r -> isSortRelOpt (fu s) r) ->
-    lift_typing0 P (Judge (option_map f tm) (f ty) (option_map fu u) r).
+    (forall r s, isSortRel s r -> isSortRel (fu s) (fr r)) ->
+    lift_typing0 P (Judge (option_map f tm) (f ty) (option_map fu u) (option_map fr r)).
   Proof.
     intros HT.
     eapply lift_typing_fu_impl with (1 := HT) => //.
@@ -706,16 +722,18 @@ Module EnvTyping (T : Term) (E : EnvironmentSig T) (TU : TermUtils T E).
     eauto.
   Qed.
 
-  Lemma lift_typing_subjtyp {P Q Q' j} :
+  Lemma lift_typing_subjtyp {P Q Q' Qr j} :
     lift_typing0 P j ->
     (forall t T, P t T -> Q t × Q T) ->
     (forall u, Q (tSort u) -> Q' u) ->
-    lift_wfu_term Q Q' j.
+    (forall T s r, P T (tSort s) -> isSortRel s r -> Qr r) ->
+    lift_wfu_term Q Q' Qr j.
   Proof.
-    intros (Htm & s & Hty & e & er) HPQ HQQ'.
+    intros (Htm & s & Hty & e & er) HPQ HQQ' HQQr.
     repeat split.
     - destruct j_term => //=. eapply fst, HPQ, Htm.
     - eapply fst, HPQ, Hty.
+    - destruct j_rel => //=. eapply HQQr; tea.
     - destruct j_univ => //=. rewrite e. eapply HQQ', snd, HPQ, Hty.
   Qed.
 

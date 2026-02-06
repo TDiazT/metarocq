@@ -130,7 +130,7 @@ Lemma subst_telescope_comm_rec s k s' k' Γ:
 Proof.
   induction Γ in k, k' |- *; rewrite ?subst_telescope_cons; simpl; auto.
   f_equal.
-  * unfold map_decl. simpl.
+  * unfold map_decl, map_decl_gen. simpl.
     f_equal.
     + destruct a as [na [b|] ty]; simpl; auto.
       f_equal. now rewrite distr_subst_rec.
@@ -212,7 +212,7 @@ Proof.
       destruct IHctx as [IHctx _].
       pose proof (context_subst_length IHctx).
       rewrite subst_context_snoc. rewrite !skipn_S.
-      rewrite /subst_decl /map_decl /= Nat.add_0_r.
+      rewrite /subst_decl /map_decl /map_decl_gen /= Nat.add_0_r.
       rewrite -{4}(firstn_skipn #|ctx| s0).
       rewrite subst_app_simpl. simpl.
       rewrite subst_context_length in H0. rewrite -H0.

@@ -200,7 +200,7 @@ Proof.
   intros hrel_pres hsubst_qual_conv hsubst_conv hsubst_sort_conv hsubst_sort_pb t.
   induction t in napp, pb, hsubst_sort_pb |- * using term_forall_list_ind; intros u1 u2 hu.
   all: cbn; try constructor; eauto using subst_equal_inst_inst, subst_equal_inst_global_inst.
-  all: solve_all; unfold eq_predicate, eq_branches, eq_branch, eq_mfixpoint in *.
+  all: solve_all; unfold eq_case_info, eq_predicate, eq_branches, eq_branch, eq_mfixpoint in *.
   all: try eapply All2_map, All_All2; tea; cbn; intros; rdest; eauto using subst_equal_inst_inst.
   all: try eapply rel_subst_instance; eauto.
   - eapply All2_map, All_All2; tea; cbn; intros; rdest; eauto using subst_equal_inst_inst.
@@ -351,6 +351,14 @@ Proof.
   now rewrite subst_instance_rel_two.
 Qed.
 
+Lemma subst_instance_aname_list_two u1 u2 (nas : list aname) :
+  subst_instance u1 (subst_instance u2 nas) =
+  subst_instance (subst_instance u1 u2) nas.
+Proof.
+  rewrite /subst_instance /subst_instance_list map_map.
+  apply map_ext, subst_instance_aname_two.
+Qed.
+
 Lemma subst_instance_level_two u1 u2 l :
   subst_instance_level u1 (subst_instance_level u2 l)
   = subst_instance_level (subst_instance u1 u2) l.
@@ -420,6 +428,8 @@ Proof.
   - apply subst_instance_aname_two.
   - apply subst_instance_aname_two.
   - apply subst_instance_aname_two.
+  - destruct ci; rewrite /map_case_info/=; f_equal.
+    apply subst_instance_rel_two.
   - destruct X; red in X0. rewrite map_predicate_map_predicate.
     apply map_predicate_eq_spec; solve_all.
     now rewrite [subst_instance_instance _ _]subst_instance_two_instance.
@@ -530,6 +540,41 @@ Proof.
       apply map_spec in H as [y [H H']]; subst.
     all: eexists; split; [eapply LevelExprSet.union_spec|reflexivity]; auto.
 Qed.
+
+Lemma In_subst_instance x u (l : Universe.t) :
+  LevelExprSet.In x (subst_instance u l) <->
+  (exists x', LevelExprSet.In x' l /\ x = subst_instance u x').
+Proof.
+  unfold subst_instance; cbn.
+  unfold subst_instance_universe.
+  now rewrite map_spec.
+Qed.
+
+Lemma subst_instance_succ ui l :
+  (Universe.succ l)@[ui] = Universe.succ l@[ui].
+Proof.
+  apply eq_univ'.
+  intros x.
+  rewrite In_subst_instance.
+  rewrite spec_map_succ. split.
+  * intros [x' [hin eq]].
+    subst.
+    apply spec_map_succ in hin as [y [int eq]].
+    subst x'. exists (subst_instance ui y).
+    split; auto.
+    - rewrite In_subst_instance. exists y; split; auto.
+    - destruct y as [[] ?]; simpl; cbn; auto.
+      now destruct nth_error.
+  * intros [x' [hin eq]]. subst x.
+    apply In_subst_instance in hin as [y [hin eq]].
+    subst x'.
+    exists (LevelExpr.succ y); cbn.
+    rewrite spec_map_succ. split.
+    - exists y; auto.
+    - destruct y as [[] ?]; cbn; auto.
+      now destruct nth_error.
+Qed.
+
 
 (* XXX: this is false with the current definition of Sort.sup.
    Is it a very important property, or can we do without? *)
@@ -870,13 +915,19 @@ Proof.
   now rewrite e.
 Qed.
 
+#[global] Instance cmp_rel_subst_instance {cf} :
+  SubstUnivPreserved (fun _ => cmp_rel (compare_quality Conv)).
+Proof.
+  intros X ??? ??. cbv -[cmp_rel compare_quality subst_instance_qvar]; cbn.
+  destruct x, y => //= [=] <-. reflexivity.
+Qed.
+
 #[global] Instance cmp_binder_annot_subst_instance {cf : checker_flags} :
   SubstUnivPreserved (fun _ => cmp_binder_annot (compare_quality Conv)).
 Proof.
-  intros ???? [] []. cbv[cmp_binder_annot]; cbn.
-  destruct binder_relevance, binder_relevance0; cbn; auto.
-  intros e; injection e => ->.
-  destruct (relevance_of_quality (subst_instance_qvar u t0)); cbn; auto.
+  intros ???? [] [].
+  cbv -[cmp_rel compare_quality subst_instance_relevance].
+  eapply cmp_rel_subst_instance; tea.
 Qed.
 
 Global Instance leq_universe_subst_instance {cf : checker_flags} : SubstUnivPreserved leq_universe.
@@ -1015,6 +1066,7 @@ Global Instance eq_term_upto_univ_subst_preserved {cf : checker_flags} Σ
   (cmp_quality : forall _ _ (_ _ : Quality.t), Prop) (cmp_universe : forall _ _ (_ _ : Universe.t), Prop)
   (cmp_sort : forall _ _ (_ _ : sort), Prop) pb napp {hquality : SubstUnivPreserved (fun φ => cmp_quality φ Conv)}
   {hbinders : SubstUnivPreserved (fun ϕ => cmp_binder_annot (cmp_quality ϕ Conv))}
+  {hrel : SubstUnivPreserved (fun ϕ => cmp_rel (cmp_quality ϕ Conv))}
   {huniverse : SubstUnivPreserved (fun φ => cmp_universe φ Conv)} {huniverse2 : SubstUnivPreserved (fun φ => cmp_universe φ pb)}
   {hsort : SubstUnivPreserved (fun φ => cmp_sort φ Conv)} {hsort2 : SubstUnivPreserved (fun φ => cmp_sort φ pb)}
   : SubstUnivPreserved (fun φ => eq_term_upto_univ_napp Σ (cmp_quality φ) (cmp_universe φ) (cmp_sort φ) pb napp).
@@ -1022,6 +1074,7 @@ Proof.
   intros φ φ' u HH t t'.
   specialize (hquality _ _ _ HH).
   specialize (hbinders _ _ _ HH).
+  specialize (hrel _ _ _ HH).
   specialize (huniverse _ _ _ HH).
   specialize (huniverse2 _ _ _ HH).
   specialize (hsort _ _ _ HH).
@@ -1030,14 +1083,15 @@ Proof.
   induction t in napp, pb, huniverse2, hsort2, t' |- * using term_forall_list_ind;
     inversion 1; subst; cbn; constructor;
       eauto using precompose_subst_instance__2, cmp_instance_impl'.
-  all: unfold eq_predicate, eq_branches, eq_branch, eq_mfixpoint in *.
+  all: unfold eq_case_info, eq_predicate, eq_branches, eq_branch, eq_mfixpoint in *.
   all: try (apply All2_map; eapply All2_impl'; tea;
             eapply All_impl; eauto; cbn; intros; aa).
   - eapply precompose_subst_instance_global__2.
     eapply cmp_global_instance_impl_same_napp; eauto.
   - eapply precompose_subst_instance_global__2.
     eapply cmp_global_instance_impl_same_napp; eauto.
-  - destruct X2 as [? [? [? ?]]].
+  - solve_all. cbn. eapply hrel; eauto.
+  - destruct X3 as [? [? [? ?]]].
     repeat split; simpl; eauto; solve_all.
     * destruct c. remember hquality as hq. clear Heqhq.
       eapply cmp_quality_instance_impl in hquality.
@@ -1052,7 +1106,7 @@ Proof.
     * rewrite /= -!subst_instance_universe_make.
       now eapply huniverse.
     * solve_all.
-Qed.  
+Qed.
 
 Lemma leq_term_subst_instance {cf : checker_flags} Σ : SubstUnivPreserved (fun φ => leq_term Σ φ).
 Proof. apply eq_term_upto_univ_subst_preserved; cbn; apply _. Qed.
@@ -1068,6 +1122,7 @@ Global Instance compare_decls_subst_preserved {cf : checker_flags} Σ
   (cmp_universe : forall _ _ (_ _ : Universe.t), Prop) (cmp_sort : forall _ _ (_ _ : sort), Prop) pb
   {hquality : SubstUnivPreserved (fun φ => cmp_quality φ Conv)}
   {hbinder : SubstUnivPreserved (fun φ => cmp_binder_annot (cmp_quality φ Conv))}
+  {hrel : SubstUnivPreserved (fun ϕ => cmp_rel (cmp_quality ϕ Conv))}
   {huniverse : SubstUnivPreserved (fun φ => cmp_universe φ Conv)} {huniverse2 : SubstUnivPreserved (fun φ => cmp_universe φ pb)}
   {hsort : SubstUnivPreserved (fun φ => cmp_sort φ Conv)} {hsort2 : SubstUnivPreserved (fun φ => cmp_sort φ pb)}
   : SubstUnivPreserved (fun φ => compare_decls (fun pb => eq_term_upto_univ Σ (cmp_quality φ) (cmp_universe φ) (cmp_sort φ) pb) pb).
@@ -1082,6 +1137,7 @@ Global Instance eq_context_upto_subst_preserved {cf : checker_flags} Σ
   (cmp_universe : forall _ _ (_ _ : Universe.t), Prop) (cmp_sort : forall _ _ (_ _ : sort), Prop) pb
   {hquality : SubstUnivPreserved (fun φ => cmp_quality φ Conv)}
   {hbind : SubstUnivPreserved (fun φ => cmp_binder_annot (cmp_quality φ Conv))}
+  {hrel : SubstUnivPreserved (fun ϕ => cmp_rel (cmp_quality ϕ Conv))}
   {huniverse : SubstUnivPreserved (fun φ => cmp_universe φ Conv)} {huniverse2 : SubstUnivPreserved (fun φ => cmp_universe φ pb)}
   {hsort : SubstUnivPreserved (fun φ => cmp_sort φ Conv)} {hsort2 : SubstUnivPreserved (fun φ => cmp_sort φ pb)}
   : SubstUnivPreserved (fun φ => eq_context_upto Σ (cmp_quality φ) (cmp_universe φ) (cmp_sort φ) pb).
@@ -1092,15 +1148,6 @@ Proof.
 Qed.
 
 (** Now routine lemmas ... *)
-
-Lemma In_subst_instance x u (l : Universe.t) :
-  LevelExprSet.In x (subst_instance u l) <->
-  (exists x', LevelExprSet.In x' l /\ x = subst_instance u x').
-Proof.
-  unfold subst_instance; cbn.
-  unfold subst_instance_universe.
-  now rewrite map_spec.
-Qed.
 
 Lemma monomorphic_level_notin_levels_of_udecl s udecl :
   LevelSet.In (Level.level s) (levels_of_udecl udecl) -> False.
@@ -1126,6 +1173,45 @@ Proof.
     + now apply LS.mem_spec.
     + apply global_ext_levels_InSet.
 Qed.
+
+Lemma leq_type1_succ {cf : checker_flags} φ l :
+  leq_universe φ (Universe.make LevelExpr.type1) (Universe.succ l).
+Proof.
+  change (Universe.make _) with (Universe.succ (Universe.make LevelExpr.set)).
+  apply leq_universe_succ_mon.
+  unfold_univ_rel. lia.
+Qed.
+
+Lemma subst_instance_univ_super {cf : checker_flags} φ ui u
+  : leq_sort φ (Sort.super (subst_instance_sort ui u)) (subst_instance_sort ui (Sort.super u)).
+Proof.
+  destruct u.
+  all: try cbnr.
+  all: rewrite subst_instance_succ; try cbnr.
+  destruct subst_instance_qvar; cbnr.
+  all: apply leq_type1_succ.
+Qed.
+
+Lemma sort_sup_subst_instance {cf : checker_flags} φ ui l u :
+  leq_universe φ (Sort.sup l@[ui] u@[ui]) (Sort.sup l u)@[ui].
+Proof.
+  destruct u; cbnr.
+  all: rewrite sup_subst_instance_univ0; cbnr.
+  destruct subst_instance_qvar; cbnr.
+  all: apply leq_universe_sup_r.
+Qed.
+
+Lemma product_subst_instance {cf : checker_flags} φ ui u1 u2 :
+  leq_sort φ (Sort.sort_of_product u1@[ui] u2@[ui]) (Sort.sort_of_product u1 u2)@[ui].
+Proof.
+  destruct u2; cbnr.
+  - apply sort_sup_subst_instance.
+  - destruct subst_instance_qvar; cbnr.
+    + apply sort_sup_subst_instance.
+    + split; cbnr.
+      apply sort_sup_subst_instance.
+Qed.
+
 
 Lemma subst_instance_extended_subst u Γ :
   subst_instance u (extended_subst Γ 0) =
@@ -1391,23 +1477,24 @@ Qed.
 
 Lemma subst_instance_case_branch_context ind mdecl u p bctx cdecl :
   subst_instance u (case_branch_context ind mdecl p bctx cdecl) =
-  case_branch_context ind mdecl (subst_instance u p) (ListDef.map (subst_instance u) bctx) cdecl.
+  case_branch_context ind mdecl (subst_instance u p) bctx cdecl.
 Proof.
   unfold case_branch_context, case_branch_context_gen.
   cbn -[fold_context_k].
-  substu => /=; len.
+  rewrite <- subst_instance_aname_list_two.
+  rewrite {1}/subst_instance /subst_instance_context -map2_set_binder_name_map_gen.
   rewrite /pre_case_branch_context_gen -inst_case_context_subst_instance //.
-  now rewrite /subst_instance /subst_instance_context -map2_set_binder_name_map_gen.
 Qed.
 
 Lemma subst_instance_case_predicate_context ind mdecl idecl p u :
   subst_instance u (case_predicate_context ind mdecl idecl p) =
-  case_predicate_context_gen ind mdecl idecl p.(pparams)@[u] p.(puinst)@[u] (forget_types p.(pcontext))@[u].
+  case_predicate_context ind mdecl idecl (subst_instance u p).
 Proof.
-  rewrite /case_predicate_context /case_predicate_context_gen /subst_instance.
+  unfold case_predicate_context, case_predicate_context_gen.
+  cbn -[fold_context_k].
+  rewrite {1}/subst_instance /subst_instance_context -map2_set_binder_name_map_gen.
+  rewrite <- subst_instance_aname_list_two.
   rewrite /pre_case_predicate_context_gen -inst_case_context_subst_instance //.
-  rewrite /subst_instance_context -map2_set_binder_name_map_gen.
-  now cbv [forget_types].
 Qed.
 
 Lemma subst_instance_to_extended_list u l
@@ -1471,7 +1558,7 @@ Lemma subst_instance_case_branch_type {cf : checker_flags} {Σ} {wfΣ : wf Σ} u
       (preturn p') in
   case_branch_type ci mdecl idecl
      (subst_instance u p)
-     (map_branch (subst_instance u) (subst_instance u) br)
+     (map_branch (subst_instance u) id br)
      ptm' i cdecl =
   map_pair (subst_instance u) (subst_instance u)
   (case_branch_type ci mdecl idecl p br ptm i cdecl).
@@ -1480,19 +1567,18 @@ Proof.
   rewrite /case_branch_type /case_branch_type_gen /map_pair /= //.
   rewrite subst_instance_case_branch_context //.
   f_equal; substu.
-  - now rewrite /case_branch_context /= -forget_types_subst_instance.
-  - f_equal.
-    rewrite map_app. f_equal.
-    + rewrite !map_map_compose. apply map_ext => x.
-      substu.
-      rewrite [subst_instance u (List.rev _)]map_rev. f_equal.
-      rewrite /expand_lets_k. len.
-      rewrite ?subst_instance_two ?subst_instance_two_context //.
-    + simpl. f_equal.
-      substu. rewrite map_app /= //.
-      rewrite subst_instance_to_extended_list to_extended_list_subst_instance.
-      do 2 f_equal.
-      rewrite !map_map_compose. now setoid_rewrite <-subst_instance_lift.
+  f_equal.
+  rewrite map_app. f_equal.
+  + rewrite !map_map_compose. apply map_ext => x.
+    substu.
+    rewrite [subst_instance u (List.rev _)]map_rev. f_equal.
+    rewrite /expand_lets_k. len.
+    rewrite ?subst_instance_two ?subst_instance_two_context //.
+  + simpl. f_equal.
+    substu. rewrite map_app /= //.
+    rewrite subst_instance_to_extended_list to_extended_list_subst_instance.
+    do 2 f_equal.
+    rewrite !map_map_compose. now setoid_rewrite <-subst_instance_lift.
 Qed.
 
 Lemma subst_instance_wf_predicate u mdecl idecl p :
@@ -1554,7 +1640,8 @@ Proof.
     reflexivity.
   - cbn. rewrite subst_instance_mkApps. cbn.
     rewrite iota_red_subst_instance.
-    change (bcontext br) with (bcotext (map_branch (subst_instance u) br)).
+    change (ci_npar ci) with (ci_npar (map_case_info (subst_instance_relevance u) ci)).
+    change (ci_ind ci) with (ci_ind (map_case_info (subst_instance_relevance u) ci)).
     eapply red_iota; eauto with pcuic.
     * rewrite nth_error_map H //.
     * simpl. now len.
@@ -1826,12 +1913,11 @@ Proof.
   now simpl in wfΣ.
 Qed.
 
-Lemma in_var_global_ext' {cf : checker_flags} n Σ :
-  wf Σ.1 ->
+Lemma in_var_global_ext' n Σ :
   QualitySet.In (Quality.var n) (global_ext_qualities Σ) ->
   QualitySet.In (Quality.var n) (qualities_of_udecl Σ.2).
 Proof.
-  intros wfΣ Hin.
+  intros Hin.
   eapply QualitySet.union_spec in Hin.
   destruct Hin; auto.
   apply QualitySet.mem_spec in H. inversion H.
@@ -1876,14 +1962,41 @@ Proof.
     + now apply not_var_global_levels in Hl.
 Qed.
 
+Lemma wf_qvar_subst_instance {cf : checker_flags} (Σ : global_env_ext) univs ui s :
+  wf Σ ->
+  wf_qvar Σ s ->
+  consistent_instance_ext (Σ.1, univs) Σ.2 ui ->
+  wf_quality (Σ.1, univs) (subst_instance_qvar ui s).
+Proof.
+  intros wfΣ wfs wfui.
+  unfold subst_instance_qvar, consistent_instance_ext, consistent_instance, wf_quality in *.
+  destruct s => //=.
+  rewrite nth_nth_error.
+  destruct nth_error eqn:e => //.
+  destruct Σ.2.
+  - destruct wfui as [_ hlen].
+    apply nth_error_Some_length in e. lia.
+  - destruct wfui as [hq _].
+    eapply forallb_nth_error in hq; tea.
+    rewrite -> e in hq.
+    destruct t => //=.
+    cbn -[QualitySet.mem] in hq.
+    unfold wf_qvar.
+    now apply QualitySet.mem_spec.
+Qed.
+
 Lemma wf_sort_subst_instance {cf : checker_flags} (Σ : global_env_ext) univs ui s :
    wf Σ ->
    wf_sort Σ s ->
    consistent_instance_ext (Σ.1, univs) Σ.2 ui ->
    wf_sort (Σ.1, univs) (subst_instance ui s).
 Proof.
-  destruct s as [| | u]; cbnr.
-  apply wf_universe_subst_instance.
+  destruct s as [| | u|s u]; cbnr.
+  - apply wf_universe_subst_instance.
+  - intros wfΣ (wfs & wfu) wfui.
+    eapply wf_qvar_subst_instance in wfs; tea.
+    eapply wf_universe_subst_instance in wfu; tea.
+    destruct subst_instance_qvar eqn:e => //=.
 Qed.
 
 Definition global_context_set Σ : ContextSet.t := universes Σ.
@@ -1900,460 +2013,3 @@ Proof.
 Qed.
 
 Definition wf_global_ext {cf : checker_flags} Σ ext := wf_ext_wk (Σ, ext).
-
-From Stdlib Require Import Morphisms.
-From Stdlib Require Import ssreflect.
-Set SimplIsCbn.
-
-Section SubstIdentity.
-  Context `{cf:checker_flags}.
-
-  Lemma subst_instance_id_mdecl Σ u mdecl :
-    consistent_instance_ext Σ (ind_universes mdecl) u ->
-    subst_instance u (abstract_instance (ind_universes mdecl)) = u.
-  Proof using Type.
-    intros cu.
-    red in cu. red in cu.
-    destruct (ind_universes mdecl) eqn:eqi.
-    - destruct u; simpl in cu; try discriminate.
-      unfold abstract_instance, subst_instance, subst_instance_instance.
-      cbn. destruct cu. apply length_nil in H, H0. rewrite H H0 //.
-    - simpl. destruct cst as [univs csts]. simpl.
-      destruct u. unfold subst_instance, subst_instance_instance. cbn.
-      unfold Instance.make. f_equal; rewrite map_mapi; simpl in *;
-        destruct cu as [Hu [sizeu [sizeq vu]]]; now rewrite mapi_nth.
-  Qed.
-
-  Lemma declared_inductive_wf_ext_wk Σ mdecl mind :
-    wf Σ ->
-    declared_minductive Σ mind mdecl ->
-    wf_ext_wk (Σ, ind_universes mdecl).
-  Proof using Type.
-    intros wfΣ decli. eapply declared_minductive_to_gen in decli.
-    epose proof (weaken_lookup_on_global_env' _ _ (InductiveDecl mdecl) wfΣ decli); eauto.
-    red. simpl. split; auto.
-    Unshelve. all:eauto.
-  Qed.
-
-  Lemma declared_inductive_wf_global_ext Σ mdecl mind :
-    wf Σ ->
-    declared_minductive Σ mind mdecl ->
-    wf_global_ext Σ (ind_universes mdecl).
-  Proof using Type.
-    intros wfΣ decli. eapply declared_minductive_to_gen in decli.
-    split; auto.
-    epose proof (weaken_lookup_on_global_env' _ _ (InductiveDecl mdecl) wfΣ decli); eauto.
-    Unshelve. all:eauto.
-  Qed.
-
-  Hint Resolve declared_inductive_wf_ext_wk declared_inductive_wf_global_ext : pcuic.
-
-  Lemma subst_instance_level_abs l n Σ qs :
-    wf Σ ->
-    LevelSet.In l (LevelSet.union
-     (fold_right LevelSet.add LevelSet.empty
-        (unfold n Level.lvar)) (global_levels Σ)) ->
-    subst_instance_level (Instance.make qs (unfold n Level.lvar)) l = l.
-  Proof using Type.
-    intros wfΣ lin.
-    eapply LevelSet.union_spec in lin.
-    destruct lin.
-    - apply LevelSet_In_fold_right_add in H.
-      destruct l; simpl; auto.
-      eapply In_unfold_inj in H; [|congruence].
-      pose proof (proj1 (nth_error_unfold Level.lvar n n0) H).
-      now rewrite (nth_error_nth _ _ _ H0).
-    - eapply not_var_global_levels in wfΣ.
-      specialize (wfΣ l H). simpl in wfΣ.
-      destruct l => //.
-  Qed.
-
-  Lemma consistent_instance_ext_abstract_instance Σ udecl :
-    wf Σ ->
-    wf_global_ext Σ udecl ->
-    consistent_instance_ext (Σ, udecl) udecl (abstract_instance udecl).
-  Proof using Type.
-    intros wfΣ wf_glob_ext.
-    red. red.
-    destruct udecl as [|[univs cst]] eqn:indu.
-    { simpl; split; reflexivity. }
-    repeat split.
-    - simpl abstract_instance. eapply forallb_mapi => //.
-      intros i Hi. unfold global_ext_qualities.
-      apply QualitySet.mem_spec, QualitySet.union_spec. left.
-      unfold qualities_of_udecl. simpl.
-      rewrite (mapi_unfold Quality.var). eapply QualitySet_In_fold_right_add.
-      induction #|qualities univs| in i, Hi |- *; try lia.
-      simpl. eapply in_or_app. destruct (eq_dec i n).
-      * subst. right; simpl; auto.
-      * left; apply IHn; lia.
-    - now rewrite mapi_length.
-    - simpl abstract_instance.
-      eapply forallb_mapi => //.
-      intros i Hi. unfold global_ext_levels.
-      apply LevelSet.mem_spec, LevelSet.union_spec. left.
-      unfold levels_of_udecl. simpl.
-      rewrite (mapi_unfold Level.lvar).
-      eapply LevelSet_In_fold_right_add.
-      induction #|Universes.universes univs| in i, Hi |- *; try lia.
-      simpl. eapply in_or_app. destruct (eq_dec i n).
-      * subst. right; simpl; auto.
-      * left; apply IHn; lia.
-    - now rewrite mapi_length.
-    - simpl. rewrite (mapi_unfold Level.lvar).
-      assert(CS.Equal (subst_instance_cstrs (Instance.make (mapi (fun (i : nat) (_ : name) => Quality.var i) (qualities univs)) (unfold #|Universes.universes univs| Level.lvar)) cst) cst).
-      { unfold CS.Equal; intros a.
-        unfold subst_instance_cstrs.
-        red in wf_glob_ext.
-        destruct wf_glob_ext as [_ wfext].
-        unfold on_udecl_prop in wfext.
-        simpl constraints_of_udecl in wfext.
-        simpl levels_of_udecl in wfext.
-        rewrite (mapi_unfold Level.lvar) in wfext.
-        clear indu.
-        simpl fst in wfext.
-        revert wfext.
-        eapply ConstraintSetProp.fold_rec_weak; auto.
-        2:reflexivity.
-        * intros s s' a' eqs H.
-          intros Hf.
-          rewrite <- eqs in Hf. rewrite -eqs; auto.
-        * intros x a0 s nin equiv.
-          intros cadd.
-          eapply CS_For_all_add in cadd as [cadd Ps].
-          specialize (equiv Ps). clear Ps.
-          destruct x as [[l c] r]. destruct cadd as [inl inr].
-          unfold subst_instance_cstr. simpl.
-          eapply subst_instance_level_abs with (qs := (mapi (fun (i : nat) (_ : name) => Quality.var i) (qualities univs))) in inl; auto.
-          eapply subst_instance_level_abs with (qs := (mapi (fun (i : nat) (_ : name) => Quality.var i) (qualities univs))) in inr; auto.
-          rewrite inl inr.
-          rewrite !CS.add_spec.
-          intuition auto. }
-      unfold valid_constraints. destruct check_univs; auto.
-      unfold valid_constraints0, satisfies. intros v.
-      destruct univs. cbn in *. rewrite H.
-      eapply CS_For_all_union.
-  Qed.
-
-  Lemma udecl_prop_in_var_poly {Σ n} : on_udecl_prop Σ.1 Σ.2 -> LevelSet.In (Level.lvar n) (levels_of_udecl Σ.2) ->
-    ∑ ctx, Σ.2 = Polymorphic_ctx ctx.
-  Proof using cf.
-    intros onu lin.
-    destruct (Σ.2); intuition eauto.
-    simpl in lin, onu. lsets.
-  Qed.
-
-  Lemma consistent_instance_ext_subst_abs_level Σ decl u :
-    wf_ext_wk Σ ->
-    consistent_instance_ext Σ decl (Instance.make [] [u]) ->
-    subst_instance_level (abstract_instance Σ.2) u = u.
-  Proof using Type.
-    intros [wfΣ onu] cu.
-    destruct decl.
-    - simpl in cu. destruct cu, u; simpl in *; try discriminate; auto.
-    - destruct cu as [_ [_ [declu _]]].
-      destruct u; simpl; auto. cbn -[global_ext_levels] in declu.
-      rewrite andb_true_r in declu.
-      eapply LevelSet.mem_spec in declu.
-      eapply in_var_global_ext in declu; auto.
-      destruct (udecl_prop_in_var_poly onu declu) as [[univs csts] eq].
-      rewrite eq in declu |- *. simpl in *.
-      rewrite mapi_unfold in declu |- *.
-      eapply LevelSet_In_fold_right_add in declu.
-      eapply In_unfold_inj in declu; try congruence.
-      eapply (nth_error_unfold Level.lvar) in declu.
-      now rewrite (nth_error_nth _ _ _ declu).
-  Qed.
-
-  Lemma udecl_in_var_quality_poly {Σ : global_env_ext} {n} :
-    QualitySet.In (Quality.var n) (qualities_of_udecl Σ.2) -> ∑ ctx, Σ.2 = Polymorphic_ctx ctx.
-  Proof using cf.
-    intros lin. destruct (Σ.2); intuition eauto.
-    simpl in lin. qsets.
-  Qed.
-
-  Lemma consistent_instance_ext_subst_abs_quality Σ decl q :
-    wf_ext_wk Σ ->
-    consistent_instance_ext Σ decl (Instance.make [q] []) ->
-    subst_instance_quality (abstract_instance Σ.2) q = q.
-  Proof using Type.
-    intros [wfΣ onu] cq.
-    destruct decl.
-    - simpl in cq. destruct cq, q; simpl in *; try discriminate; auto.
-    - destruct cq as [declq _].
-      destruct q; simpl; auto. cbn -[global_ext_qualities] in declq.
-      destruct t. rewrite andb_true_r in declq.
-      eapply QualitySet.mem_spec in declq.
-      eapply in_var_global_ext' in declq; auto.
-      destruct (udecl_in_var_quality_poly declq) as [[univs csts] eq].
-      rewrite eq in declq |- *. simpl in *.
-      rewrite mapi_unfold in declq |- *.
-      eapply QualitySet_In_fold_right_add in declq.
-      eapply In_unfold_inj in declq.
-      2: intros ?? H; injection H => //.
-      eapply (nth_error_unfold Quality.var) in declq.
-      now rewrite (nth_error_nth _ _ _ declq).
-  Qed.
-
-  Lemma consistent_instance_ext_subst_abs Σ decl u :
-    wf_ext_wk Σ ->
-    consistent_instance_ext Σ decl u ->
-    subst_instance (abstract_instance Σ.2) u = u.
-  Proof using Type.
-    intros [wfΣ onu] cu.
-    destruct decl.
-    - simpl in cu. destruct u, cu; simpl in *.
-      apply length_nil in H, H0. rewrite H H0 //.
-    - destruct u as [qs us]. destruct cu as [declq [_ [declu _]]]; induction us.
-      * induction qs; simpl; auto.
-        rewrite /subst_instance /subst_instance_instance // /Instance.make /=.
-        repeat f_equal.
-        -- destruct a; auto. destruct t. cbn.
-           have Hin: QualitySet.In (Quality.var n) (qualities_of_udecl Σ.2).
-           { rewrite forallb_forall in declq. specialize (declq (Quality.var n)).
-             rewrite -QualitySet.mem_spec. apply QualitySet_mem_union in declq.
-             - destruct declq; auto. inversion H.
-             - cbn. left. auto. }
-           destruct (udecl_in_var_quality_poly Hin) as [[univs csts] eq]. rewrite eq.
-           cbn. rewrite mapi_unfold. rewrite eq in Hin. cbn in Hin.
-           rewrite nth_nth_error.
-           rewrite mapi_unfold -QualitySet_In_fold_right_add in Hin.
-           apply In_unfold_inj in Hin. 2: intros ?? H; injection H => //.
-           rewrite (nth_error_unfold Quality.var) in Hin.
-           destruct (nth_error (unfold #|qualities univs| Quality.var) n); try congruence.
-           injection Hin => //.
-        -- unfold subst_instance, subst_instance_instance, Instance.make in IHqs.
-           injection IHqs => //. rewrite forallb_forall. intros ??.
-           rewrite forallb_forall in declq. apply declq. now right.
-      * rewrite /subst_instance /subst_instance_instance /Instance.make /=. repeat f_equal.
-        -- unfold subst_instance, subst_instance_instance, Instance.make in IHus.
-           have declq': forallb (fun q => QualitySet.mem q (global_ext_qualities Σ))
-                          (Instance.qualities (qs, us)) = true.
-           { rewrite forallb_forall. intros q Hin. rewrite forallb_forall in declq.
-             now apply declq. }
-           have declu': forallb (fun q => LevelSet.mem q (global_ext_levels Σ))
-                          (Instance.universes (qs, us)) = true.
-           { rewrite forallb_forall. intros u Hin. rewrite forallb_forall in declu.
-             apply declu. now right. }
-           injection (IHus declq' declu') => //.
-        -- destruct a; auto. move/andb_and: declu => [ina _].
-           eapply LevelSet.mem_spec in ina. eapply in_var_global_ext in ina; auto.
-           destruct (udecl_prop_in_var_poly onu ina) as [[univs csts] eq].
-           rewrite eq in IHus, ina |- *. simpl subst_instance in IHus. simpl in ina.
-           simpl. rewrite nth_nth_error. rewrite !mapi_unfold in IHus, ina |- *.
-           eapply LevelSet_In_fold_right_add in ina.
-           eapply In_unfold_inj in ina; try congruence.
-           eapply (nth_error_unfold Level.lvar) in ina.
-           now rewrite ina.
-        -- move/andb_and: declu => [_ au]. simpl Instance.qualities in declq.
-           specialize (IHus declq au). clear au. injection IHus => //.
-  Qed.
-
-  Lemma in_global_ext_subst_abs_level Σ l :
-    wf_ext_wk Σ ->
-    LevelSet.In (LevelExpr.get_level l) (global_ext_levels Σ) ->
-    subst_instance (abstract_instance Σ.2) l = l.
-  Proof using Type.
-    intros [wfΣ onu] cu.
-    destruct l; auto.
-    destruct t; auto.
-    eapply in_var_global_ext in cu; eauto.
-    eapply udecl_prop_in_var_poly in onu as [[ctx cstrs] eq]; eauto.
-    rewrite eq. simpl.
-    rewrite eq in cu. simpl in cu.
-    apply LevelSet_In_fold_right_add in cu.
-    unfold AUContext.repr in *. rewrite (mapi_unfold Level.lvar) in cu |- *.
-    destruct nth_error eqn:hnth.
-    * apply nth_error_unfold_inv in hnth. subst; auto.
-    * apply nth_error_None in hnth. rewrite unfold_length in hnth.
-      apply In_unfold_inj in cu; try lia. congruence.
-  Qed.
-
-  Lemma consistent_instance_ext_subst_abs_univ Σ u :
-    wf_ext_wk Σ ->
-    wf_sort Σ u ->
-    subst_instance_sort (abstract_instance Σ.2) u = u.
-  Proof using Type.
-    intros wf cu.
-    destruct u; simpl; auto. f_equal.
-    apply eq_univ'.
-    simpl in cu.
-    intros l.
-    rewrite In_subst_instance.
-    split.
-    - intros [x [inx ->]].
-      specialize (cu _ inx).
-      unfold subst_instance.
-      apply in_global_ext_subst_abs_level in cu; eauto.
-      unfold subst_instance in cu. now rewrite cu.
-    - intros inl.
-      specialize (cu _ inl). exists l; split; auto.
-      now rewrite in_global_ext_subst_abs_level.
-  Qed.
-
-  Lemma consistent_instance_ext_subst_abs_inds Σ decl ind u bodies :
-    wf_ext_wk Σ ->
-    consistent_instance_ext Σ decl u ->
-    subst_instance (abstract_instance Σ.2) (inds ind u bodies) =
-      (inds ind u bodies).
-  Proof using Type.
-    intros wf cu.
-    unfold inds. generalize #|bodies|.
-    induction n; simpl; auto. rewrite IHn; f_equal.
-    now rewrite [subst_instance_instance _ _](consistent_instance_ext_subst_abs _ _ _ wf cu).
-  Qed.
-
-  Lemma wf_sort_type1 Σ : wf_sort Σ Sort.type1.
-  Proof using Type.
-    simpl.
-    intros l hin%LevelExprSet.singleton_spec.
-    subst l. simpl.
-    apply global_ext_levels_InSet.
-  Qed.
-
-  Lemma wf_sort_super {Σ u} : wf_sort Σ u -> wf_sort Σ (Sort.super u).
-  Proof using Type.
-    destruct u; cbn.
-    1-2:intros _ l hin%LevelExprSet.singleton_spec; subst l; apply wf_sort_type1;
-     now apply LevelExprSet.singleton_spec.
-    intros Hl.
-    intros l hin.
-    eapply Universes.spec_map_succ in hin as [x' [int ->]].
-    simpl. now specialize (Hl _ int).
-  Qed.
-
-  Lemma app_inj {A} (l l' l0 l0' : list A) :
-    #|l| = #|l0| ->
-    l ++ l' = l0 ++ l0' ->
-    l = l0 /\ l' = l0'.
-  Proof using Type.
-    induction l in l', l0, l0' |- *; destruct l0; simpl in * => //; auto.
-    intros [= eq] [= -> eql].
-    now destruct (IHl _ _ _ eq eql).
-  Qed.
-
-  Lemma subst_abstract_instance_id :
-    env_prop (fun Σ Γ t T =>
-        wf_ext_wk Σ ->
-        let u := abstract_instance (snd Σ) in
-        subst_instance u t = t × subst_instance u T = T)
-        (fun Σ _ j => wf_ext_wk Σ ->
-        let u := abstract_instance (snd Σ) in
-        lift_wfu_term (fun t => subst_instance u t = t) (fun t => subst_instance u t = t) j)
-        (fun Σ Γ =>
-        wf_ext_wk Σ ->
-        let u := abstract_instance (snd Σ) in
-        subst_instance u Γ = Γ).
-  Proof using Type.
-    eapply typing_ind_env; intros; simpl in *; auto.
-    { apply lift_typing_subjtyp with (1 := X). 2: intros s Hs; now depelim Hs.
-      intros ?? []; auto. }
-
-    { apply All_local_env_cst in X0. clear -X0 X1.
-      eapply All2_eq, All2_map_left. apply All_All2 with (1 := X0) => decl IH.
-      destruct IH as (? & ? & ?), decl as [na bo ty]; tas; unfold map_decl; cbn in *.
-      f_equal; tas. destruct bo => //. cbn in *. now f_equal. }
-
-    all: try ((subst u || subst u0); split; [f_equal|]; intuition eauto).
-
-    1:{ rewrite subst_instance_lift. f_equal.
-      generalize H. rewrite -H1 /subst_instance /= nth_error_map H /= => [=].
-      intros Hdecl. now rewrite -{2}Hdecl. }
-
-    all: try match goal with H : lift_wfu_term _ _ _ |- _ => destruct H as (Htm & Hty & Hs); cbn in Htm, Hty, Hs end.
-    all:try (solve [f_equal; eauto; try congruence]).
-    all:try (rewrite ?subst_instance_two; f_equal; eapply consistent_instance_ext_subst_abs; eauto).
-
-    - now rewrite consistent_instance_ext_subst_abs_univ.
-
-    - rewrite consistent_instance_ext_subst_abs_univ //.
-      now apply wf_sort_super.
-
-    - rewrite product_subst_instance. do 2 f_equal; tas.
-      now noconf b0.
-
-    - intuition auto. noconf a; noconf b; noconf b0.
-      rewrite subst_instance_subst /= /subst1.
-      repeat (f_equal; simpl; auto).
-
-    - rewrite /type_of_constructor subst_instance_subst subst_instance_two.
-      erewrite consistent_instance_ext_subst_abs; eauto. f_equal.
-      eapply consistent_instance_ext_subst_abs_inds; eauto.
-
-    - solve_all; simpl in *.
-      * rewrite subst_instance_mkApps /= /subst_instance /= in b0.
-        eapply mkApps_nApp_inj in b0 as [Hi Hpars] => //.
-        now noconf Hi.
-      * rewrite subst_instance_mkApps /= /subst_instance /= in b0.
-        eapply mkApps_nApp_inj in b0 as [Hi Hpars] => //.
-        rewrite map_app in Hpars.
-        eapply app_inj in Hpars as [Hpars hinds]. 2:now len.
-        rewrite -{2}(map_id (pparams p)) in Hpars.
-        now apply map_eq_inj in Hpars.
-
-    - solve_all.
-
-    - rewrite subst_instance_mkApps. f_equal.
-      * rewrite /ptm.
-        rewrite subst_instance_it_mkLambda_or_LetIn.
-        rewrite subst_instance_app in H.
-        eapply app_inj in H as []; [|now len].
-        rewrite H. now f_equal.
-      * rewrite map_app.
-        rewrite subst_instance_mkApps /= /subst_instance /= in b0.
-        eapply mkApps_nApp_inj in b0 as [Hi Hpars] => //.
-        rewrite map_app in Hpars.
-        eapply app_inj in Hpars as [Hpars hinds]. 2:now len.
-        now rewrite hinds /= a0.
-    - rewrite subst_instance_subst /=.
-      rewrite /subst_instance /=.
-      rewrite subst_instance_mkApps in b.
-      eapply mkApps_nApp_inj in b as [Hi Hpars] => //.
-      f_equal.
-      * rewrite a; f_equal.
-        rewrite /subst_instance_list. now rewrite map_rev Hpars.
-      * rewrite [subst_instance_constr _ _]subst_instance_two.
-        noconf Hi. now rewrite [subst_instance _ u]H.
-    - solve_all.
-      + destruct a0 as (_ & X & _); tas.
-      + destruct b as (X & _); tas.
-    - eapply nth_error_all in X0 as (_ & X0 & _); tea.
-    - solve_all.
-      + destruct a0 as (_ & X & _); tas.
-      + destruct b as (X & _); tas.
-    - eapply nth_error_all in X0 as (_ & X0 & _); tea.
-    - destruct p as [? []]; cbnr. do 2 f_equal.
-      depelim X0. specialize (hty X1); specialize (hdef X1).
-      unfold mapu_array_model; destruct a; cbn -[Universe.make'] in *.
-      f_equal; intuition eauto.
-      * rewrite /subst_instance subst_instance_universe_make in b.
-        now injection b as e.
-      * solve_all.
-    - depelim X0; cbn => //=. depelim X. simp prim_type. cbn. f_equal; intuition eauto.
-      do 2 f_equal.
-      cbn -[Universe.make'] in b.
-      rewrite /subst_instance subst_instance_universe_make in b.
-      injection b as e. unfold subst_instance_instance. cbn; f_equal.
-      now unfold subst_instance in e.
-  Qed.
-
-  Lemma typed_subst_abstract_instance Σ Γ t T :
-    wf_ext_wk Σ ->
-    Σ ;;; Γ |- t : T ->
-    let u := abstract_instance Σ.2 in
-    subst_instance u t = t.
-  Proof using Type.
-    intros [wfΣ onu] H. eapply (env_prop_typing subst_abstract_instance_id) in H as [H H']; eauto.
-    split; auto.
-  Qed.
-
-  Lemma subst_instance_id Σ Γ :
-    wf_ext_wk Σ ->
-    wf_local Σ Γ ->
-    let u := abstract_instance Σ.2 in
-    subst_instance u Γ = Γ.
-  Proof using Type.
-    intros. eapply (env_prop_wf_local subst_abstract_instance_id) in X0; eauto.
-  Qed.
-
-End SubstIdentity.

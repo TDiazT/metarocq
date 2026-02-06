@@ -191,6 +191,9 @@ Definition string_of_qvar (q : QVar.t) :=
 Inductive relevance : Set := Relevant | Irrelevant | RelevanceVar (_ : QVar.t).
 Derive NoConfusion EqDec for relevance.
 
+Definition on_relevance {T} (on_qvar : QVar.t -> T) (def : T) r :=
+  match r with Relevant | Irrelevant => def | RelevanceVar qv => on_qvar qv end.
+
 (** Binders annotated with relevance *)
 Record binder_annot (A : Type) := mkBindAnn { binder_name : A; binder_relevance : relevance }.
 
@@ -250,6 +253,9 @@ Record case_info := mk_case_info {
      ci_cstr_ndecls : list nat; (* The number of arguments of each constructor (no params but lets included) *)   *)
   ci_relevance : relevance }.
 Derive NoConfusion EqDec for case_info.
+
+Definition map_case_info f ci :=
+  {| ci_ind := ci.(ci_ind); ci_npar := ci.(ci_npar); ci_relevance := f ci.(ci_relevance) |}.
 
 Definition string_of_case_info ci :=
   "(" ^ string_of_inductive ci.(ci_ind) ^ "," ^
@@ -901,6 +907,12 @@ Section Contexts.
     fold_context_k f Γ = fold_context_k g Γ.
   Proof using Type.
     now apply fold_context_gen_k_ext.
+  Qed.
+
+  #[global] Instance fold_context_gen_k_proper : Proper (pointwise_relation _ Logic.eq ==> pointwise_relation nat (pointwise_relation _ Logic.eq) ==> Logic.eq ==> Logic.eq)
+    (@fold_context_gen_k term' term).
+  Proof using Type.
+    intros fn gn Hfgn f g Hfg x y <-. now apply fold_context_gen_k_ext.
   Qed.
 
   #[global] Instance fold_context_k_proper : Proper (pointwise_relation nat (pointwise_relation _ Logic.eq) ==> Logic.eq ==> Logic.eq)

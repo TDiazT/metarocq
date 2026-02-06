@@ -132,11 +132,11 @@ Inductive cumulSpec0 {cf : checker_flags} (Σ : global_env_ext) Γ (pb : conv_pb
     Σ ;;; Γ ,, vdef na t ty ⊢ u ≤s[Conv] u' ->
     Σ ;;; Γ ⊢ tLetIn na t ty u ≤s[pb] tLetIn na' t' ty' u'
 
-| cumul_Case indn : forall p p' c c' brs brs',
+| cumul_Case ci : forall p p' c c' brs brs',
     cumul_predicate (fun Γ t u => Σ ;;; Γ ⊢ t ≤s[Conv] u) (compare_quality Conv) (compare_universe Σ Conv) Γ p p' ->
     Σ ;;; Γ ⊢ c ≤s[Conv] c' ->
     cumul_branches (fun Γ t u => Σ ;;; Γ ⊢ t ≤s[Conv] u) Γ p brs brs' ->
-    Σ ;;; Γ ⊢ tCase indn p c brs ≤s[pb] tCase indn p' c' brs'
+    Σ ;;; Γ ⊢ tCase ci p c brs ≤s[pb] tCase ci p' c' brs'
 
 | cumul_Proj : forall p c c',
     Σ ;;; Γ ⊢ c ≤s[Conv] c' ->
