@@ -11,8 +11,154 @@ Inductive name : Set :=
 | nNamed (_ : ident).
 Derive NoConfusion EqDec for name.
 
+Module QGlobal.
+
+  Record t := {
+    library : dirpath ;
+    id : ident
+  }.
+
+  Notation make := Build_t.
+
+  Definition repr q := (q.(library), q.(id)).
+
+  Definition equal q1 q2 :=
+    repr q1 == repr q2.
+
+  Definition compare q1 q2 :=
+    let c := compare_ident q1.(id) q2.(id) in
+    match c with
+    | Lt | Gt => c
+    | Eq => DirPathOT.compare q1.(library) q2.(library)
+    end.
+
+  Definition to_string q :=
+    string_of_dirpath q.(library) ^ "." ^ q.(id).
+
+  #[global, refine]
+  Instance reflect_qglobal : ReflectEq QGlobal.t := {
+    eqb := equal
+  }.
+  Proof. 
+    intros [lib1 id1] [lib2 id2]; unfold equal, repr; cbn.
+    case: eqb_spec ; nodec.
+    now constructor.
+  Qed.
+
+  Lemma eqb_refl (g : t) : eqb g g = true.
+  Proof.
+    destruct g; cbn; apply eqb_refl.
+  Qed.
+
+  #[global]
+  Instance eq_dec_qglobal : EqDec t.
+  Proof. 
+    intros q1 q2.
+    destruct (q1 == q2) eqn:e.
+    - apply eqb_eq in e. now left.
+    - right. intros f. rewrite f in e. subst.
+      rewrite eqb_refl in e. discriminate.
+  Defined.
+
+  Inductive lt : t -> t -> Prop :=
+  | ltIdQGlobal lib1 id1 lib2 id2 : 
+    IdentOT.lt id1 id2 ->
+    lt (make lib1 id1) (make lib2 id2)
+  | ltLibQGlobal id lib1 lib2 : 
+    DirPathOT.lt lib1 lib2 ->
+    lt (make lib1 id) (make lib2 id).
+
+  Derive Signature for lt.
+
+  #[global] Instance lt_strorder : StrictOrder lt.
+  Proof.
+    constructor.
+    - intros [lib id] X. inversion X; subst;
+      now eapply irreflexivity in H0.
+    - intros q1 q2 q3 H1 H2; inversion H1; inversion H2; subst; injection H5; intros; subst;
+      try now constructor.
+      * constructor; now etransitivity.
+      * constructor; now etransitivity.
+  Qed.
+  
+  Definition ltb (q1 q2 : QGlobal.t) : bool :=
+    match QGlobal.compare q1 q2 with
+    | Lt => true
+    | _ => false
+    end.
+
+  Definition compare_spec : forall x y, CompareSpec (eq x y) (lt x y) (lt y x) (compare x y).
+  Proof.
+    intros [lib1 id1] [lib2 id2]. rewrite /compare. cbn. rewrite /compare_ident.
+    destruct (IdentOT.compare_spec id1 id2) as [e | lt | gt]; subst.
+    - destruct (DirPathOT.compare_spec lib1 lib2) as [e' | lt' | gt']; subst;
+      now repeat constructor.
+    - constructor. now constructor.
+    - constructor. now constructor.
+  Qed.
+
+  Lemma reflect_lt_qglobal (x y : t) : reflectProp (lt x y) (ltb x y).
+  Proof.
+    destruct (ltb x y) eqn:e; constructor; destruct x as [lib1 id1], y as [lib2 id2].
+    - rewrite /ltb in e.
+      destruct (compare_spec (make lib1 id1) (make lib2 id2)); try discriminate. 
+      assumption.
+    - intro f. inversion f; subst.
+      * rewrite /ltb /compare in e. rewrite /compare_ident in e. unfold IdentOT.lt in H0. rewrite H0 in e. discriminate.
+      * rewrite /ltb /compare in e. rewrite /compare_ident in e. rewrite IdentOT.compare_refl in e. cbn in e. move/DirPathOT.compare_lt_lt: H0 => H0; rewrite H0 in e. discriminate. 
+  Qed.
+
+  Inductive le : t -> t -> Prop :=
+  | leeqQGlobal q : le q q
+  | leltQGlobal q1 q2 : lt q1 q2 -> le q1 q2.
+    
+  Derive Signature for le.
+  
+  #[global] Instance le_trans : Transitive le.
+  Proof.
+    intros [lib1 id1] [lib2 id2] [lib3 id3] H1 H2.
+    inversion H1; inversion H2; subst; try now constructor.
+    constructor. etransitivity; tea.
+  Qed.
+
+  #[global] Instance le_preorder : PreOrder le.
+  Proof.
+    constructor.
+    - intros [lib id]. constructor.
+    - intros v1 v2 v3 X1 X2; inversion X1; inversion X2; subst; try now constructor.
+      etransitivity; tea.
+  Qed.  
+
+  Definition leqb (q1 q2 : t) : bool := 
+    (* (q1 == q2) || ltb q1 q2. *)
+    match QGlobal.compare q1 q2 with
+    | Gt => false
+    | _ => true
+    end.
+
+  Lemma reflect_le_qglobal (x y : t) : reflectProp (le x y) (leqb x y).
+  Proof.
+    destruct (leqb x y) eqn:e; constructor; destruct x as [lib1 id1], y as [lib2 id2].
+    - rewrite /leqb in e. destruct (compare_spec (make lib1 id1) (make lib2 id2)); try discriminate.
+      * injection H; intros; subst. now constructor.
+      * now constructor.
+    - intro f. inversion f; subst.
+      * rewrite /leqb in e. destruct (compare_spec (make lib2 id2) (make lib2 id2)); try discriminate. now apply irreflexivity in H.
+      * rewrite /leqb in e. destruct (compare_spec (make lib1 id1) (make lib2 id2)); try discriminate. eapply transitivity in H0. now apply irreflexivity in H0. assumption.
+  Qed.
+
+  Definition leq_qglobal_dec v v' : {le v v'} + {~le v v'}.
+  Proof.
+    destruct v as [lib1 id1], v' as [lib2 id2].
+    destruct (leqb (make lib1 id1) (make lib2 id2)) eqn:e.
+    - now move/reflect_le_qglobal: e.
+    - right; move/reflect_le_qglobal=> f; congruence.
+  Defined.
+
+End QGlobal.
+
 Module QVar.
-  Inductive repr_ {V : Set} := Var (_ : V).
+  Inductive repr_ {V : Set} := Var (_ : V) | Global (_ : QGlobal.t).
   Derive NoConfusion for repr_.
   Arguments repr_ : clear implicits.
 
@@ -24,36 +170,53 @@ Module QVar.
   Definition eqb {V : Set} `{ReflectEq V} (v1 v2 : repr_ V) : bool :=
     match v1, v2 with
     | Var i, Var j => eqb i j
+    | Global q1, Global q2 => QGlobal.equal q1 q2
+    | _, _ => false
     end.
 
   Lemma eqb_refl {V : Set} `{ReflectEq V} (v : repr_ V) : eqb v v = true.
   Proof.
-    destruct v. cbn. apply eqb_refl.
+    destruct v; cbn; apply eqb_refl.
   Qed.
 
   #[global, program] Instance reflect_eq_qvar {V : Set} `{ReflectEq V} : ReflectEq (repr_ V) :=
     { eqb := eqb }.
   Next Obligation.
-    destruct x, y; cbn; destruct (eqb_spec v v0); constructor.
-    now f_equal. congruence.
+    destruct x as [v1 | t1].
+    - destruct y as [v2 | t2]; cbn; try case eqb_spec; nodec. now constructor.
+    - destruct y as [v2 | t2]; cbn; try case eqb_spec; nodec.
+      destruct t1 as [lib1 id1], t2 as [lib2 id2]. 
+      unfold QGlobal.equal, QGlobal.repr; cbn.
+      case: eqb_spec; nodec.
+      now constructor.
   Qed.
 
-  #[global] Instance eq_dec_qvar {V : Set} `{EqDec V} : EqDec (repr_ V) := ltac:(intros v v'; decide equality).
+  #[global] Instance eq_dec_qvar {V : Set} `{EqDec V} : EqDec (repr_ V).
+  Proof.
+    intros [v1 | t1] [v2 | t2]; cbn; try decide equality;
+    (* Why is this instance not picked up by automation? *)
+    eapply QGlobal.eq_dec_qglobal.
+  Qed.
 
   Inductive lt_ {V V_lt} : repr_ V -> repr_ V -> Prop :=
-  | ltVarVar i j : V_lt i j -> lt_ (Var i) (Var j).
+  | ltVarVar i j : V_lt i j -> lt_ (Var i) (Var j)
+  | ltGlobalGlobal t1 t2 : QGlobal.lt t1 t2 -> lt_ (Global t1) (Global t2)
+  | ltVarGlobal i q1 : lt_ (Var i) (Global q1).
+
   Derive Signature for lt_.
   Arguments lt_ {V} V_lt.
 
   Definition lt := lt_ Nat.lt.
+  
   #[global] Instance lt_strorder : StrictOrder lt.
   Proof.
     constructor.
-    - intros v X; inversion X.
+    - intros v X; inversion X;
       now eapply irreflexivity in H1.
-    - intros v1 v2 v3 X1 X2;
-        inversion X1; inversion X2; constructor.
-      subst. etransitivity; tea. inversion H3. now subst.
+    - intros v1 v2 v3 X1 X2.
+      inversion X1; inversion X2; subst; try congruence; try now constructor.
+      * inversion H3; subst. constructor. now etransitivity; tea. 
+      * inversion H3; subst. constructor. now etransitivity; tea.
   Qed.
 
   Definition lt_compat : Proper (eq ==> eq ==> iff) lt.
@@ -64,32 +227,41 @@ Module QVar.
   Definition ltb_ {V V_ltb} (v1 v2 : repr_ V) : bool :=
     match v1, v2 with
     | Var i, Var j => V_ltb i j
+    | Global t1, Global t2 => QGlobal.ltb t1 t2
+    | Var _, _ => true
+    | _, _ => false
     end.
+    
   Arguments ltb_ {V} V_ltb.
 
   Definition ltb := ltb_ Nat.ltb.
 
   Lemma reflect_lt_qvar {V : Set} (x y : t) : reflectProp (lt x y) (ltb x y).
   Proof.
-    destruct (ltb x y) eqn:e; constructor; destruct x, y; rewrite /ltb /ltb_ in e.
+    destruct (ltb x y) eqn:e; constructor; destruct x as [n1 | [lib1 id1]], y as [n2 | [lib2 id2]]; rewrite /ltb /ltb_ in e; try congruence; try now (intro f; inversion f).
     - constructor. now apply Nat.ltb_lt.
-    - intro f. inversion f. subst. apply Nat.ltb_lt in H1. congruence.
+    - now constructor.
+    - constructor. apply (QGlobal.reflect_lt_qglobal _ _ e).
+    - intro f; inversion f; subst.
+      move/QGlobal.reflect_lt_qglobal: H1. congruence.
   Qed.
 
   Inductive le_ {V V_le} : repr_ V -> repr_ V -> Prop :=
-  | leVarVar i j : V_le i j -> le_ (Var i) (Var j).
+  | leVarVar i j : V_le i j -> le_ (Var i) (Var j)
+  | leGlobalGlobal t1 t2 : QGlobal.le t1 t2 -> le_ (Global t1) (Global t2)
+  | leVarGlobal i q1 : le_ (Var i) (Global q1).
   Derive Signature for le_.
   Arguments le_ {V} V_le.
 
   Definition le := le_ Nat.le.
-
+  
   #[global] Instance le_preorder : PreOrder le.
   Proof.
     constructor.
-    - intros i. destruct i. constructor. apply le_n.
-    - intros v1 v2 v3 X1 X2; inversion X1; inversion X2; constructor.
-      subst. etransitivity; tea. inversion H3. now subst.
-  Qed.
+    - intros i. destruct i; constructor; constructor.
+    - intros v1 v2 v3 X1 X2; inversion X1; inversion X2; subst; try discriminate; constructor;
+      now etransitivity; tea.
+  Qed. 
 
   Definition le_compat : Proper (eq ==> eq ==> iff) le.
   Proof.
@@ -99,6 +271,9 @@ Module QVar.
   Definition leqb_ {V V_leqb} (v1 v2 : repr_ V) : bool :=
     match v1, v2 with
     | Var i, Var j => V_leqb i j
+    | Global t1, Global t2 => QGlobal.leqb t1 t2
+    | Var _, _ => true
+    | _, _ => false
     end.
   Arguments leqb_ {V} V_leqb.
 
@@ -106,31 +281,39 @@ Module QVar.
 
   Lemma reflect_le_qvar {V : Set} (x y : t) : reflectProp (le x y) (leqb x y).
   Proof.
-    destruct (leqb x y) eqn:e; constructor; destruct x, y; rewrite /leqb /leqb_ in e.
+    destruct (leqb x y) eqn:e; constructor; destruct x, y; rewrite /leqb /leqb_ in e; try discriminate; try now (intro f; inversion f).
     - constructor. now apply Nat.leb_le.
-    - intro f. inversion f. subst. apply Nat.leb_le in H1. congruence.
+    - now constructor.
+    - constructor. apply (QGlobal.reflect_le_qglobal _ _ e). 
+    - intro f. inversion f; subst. move/QGlobal.reflect_le_qglobal: H1. congruence.
   Qed.
 
   Definition compare (v1 v2 : t) : comparison
     := match v1, v2 with
        | Var i, Var j => Nat.compare i j
+       | Global t1, Global t2 => QGlobal.compare t1 t2 
+       | Var _, _ => Lt 
+       | _, Var _ => Gt
        end.
 
   Lemma compare_spec x y : CompareSpec (eq x y) (lt x y) (lt y x) (compare x y).
   Proof.
     cbv [compare].
-    destruct x, y.
+    destruct x as [i | q1], y as [j | q2].
     all: lazymatch goal with
          | [ |- context[Nat.compare ?x ?y] ]
            => destruct (Nat.compare_spec x y)
          | _ => idtac
          end.
     all: repeat constructor; try apply f_equal; try assumption.
+    destruct (QGlobal.compare_spec q1 q2); now (repeat constructor).
   Qed.
 
   Definition eq_ {V} eq_V (q1 q2 : repr_ V) : Prop :=
     match q1, q2 with
     | Var q1, Var q2 => eq_V q1 q2
+    | Global t1, Global t2 => t1 = t2
+    | _, _ => False
     end.
 
   Definition eq : t -> t -> Prop := eq_ (fun n m => n = m).
@@ -145,47 +328,56 @@ Module QVar.
 
   Definition eq_dec_ {V : Set} {eq_V} (eq_dec_V : forall v1 v2 : V, {eq_V v1 v2} + {~ (eq_V v1 v2)})
     (v1 v2 : repr_ V) : {eq_ eq_V v1 v2} + {~ (eq_ eq_V v1 v2)}.
-  Proof. destruct v1, v2. unfold eq_. apply eq_dec_V. Defined.
+  Proof. destruct v1, v2; unfold eq_; try tauto.
+    - apply eq_dec_V.
+    - apply QGlobal.eq_dec_qglobal.
+  Defined. 
 
   Definition eq_dec := eq_dec_ Nat.eq_dec.
 
-  Definition sup_ {V} V_sup (x y : repr_ V) : repr_ V :=
+  (* Definition sup_ {V} V_sup (x y : repr_ V) : repr_ V :=
     match x, y with
     | Var n, Var m => Var (V_sup n m)
-    end.
+    end. *)
 
-  Definition sup : t -> t -> t := sup_ Nat.max.
+  (* Definition sup : t -> t -> t := sup_ Nat.max. *)
 
-  Lemma sup_comm_ {V : Set} V_sup :
+  (* Lemma sup_comm_ {V : Set} V_sup :
     (forall n m : V, V_sup n m = V_sup m n) ->
     forall (x y : repr_ V), sup_ V_sup x y = sup_ V_sup y x.
   Proof.
     intros Vcomm ??. destruct x, y; cbn.
     f_equal. apply Vcomm.
-  Qed.
+  Qed. *)
 
-  Lemma sup_comm (x y : t) : sup x y = sup y x.
+  (* Lemma sup_comm (x y : t) : sup x y = sup y x.
   Proof.
     apply sup_comm_, Nat.max_comm.
-  Qed.
+  Qed. *)
 
-  Lemma sup_idem (x : t) : sup x x = x.
+  (* Lemma sup_idem (x : t) : sup x x = x.
   Proof.
     destruct x; cbn. now rewrite Nat.max_id.
-  Qed.
+  Qed. *)
 End QVar.
 
 Definition leq_qvar_dec v v' : {QVar.le v v'} + {~QVar.le v v'}.
 Proof.
-  destruct v, v'. cbv[QVar.le].
-  destruct (le_dec n n0).
+  destruct v as [i | q1], v' as [j | q2]; cbv[QVar.le].
+  - destruct (le_dec i j).
+    * left. now constructor.
+    * right. intro. inversion H. now apply n.
   - left. now constructor.
-  - right. intro. inversion H. now apply n1.
+  - right. intro. inversion H.
+  - destruct (QGlobal.leq_qglobal_dec q1 q2) as [Hle | Hnle].
+    * now left; constructor.
+    * right. intro f. apply Hnle. now inversion f. 
 Qed.
 
 Definition string_of_qvar (q : QVar.t) :=
   match q with
   | QVar.Var i => "α" ^ string_of_nat i
+  | QVar.Global q => "γ" ^ QGlobal.to_string q
   end.
 
 Inductive relevance : Set := Relevant | Irrelevant | RelevanceVar (_ : QVar.t).

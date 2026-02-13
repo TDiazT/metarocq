@@ -1493,7 +1493,8 @@ Module GlobalMaps (T: Term) (E: EnvironmentSig T) (TU : TermUtils T E) (ET: EnvT
     Definition lift_quality n q :=
       match q with
       | Quality.qVar (QVar.Var k) => Quality.var (n + k)
-      | Quality.qProp | Quality.qSProp | Quality.qType => q
+      | Quality.qProp | Quality.qSProp | Quality.qType 
+      | Quality.qVar (QVar.Global _) => q
       end.
 
     Definition lift_instance_universes n u :=

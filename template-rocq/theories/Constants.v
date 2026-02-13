@@ -226,6 +226,9 @@ Register MetaRocq.Template.Ast.Env.global_env as metarocq.ast.global_env.
 Register MetaRocq.Template.Ast.Env.global_env_ext as metarocq.ast.global_env_ext.
 Register MetaRocq.Template.Ast.Env.program as metarocq.ast.program.
 
+Register MetaRocq.Common.BasicAst.QGlobal.t as metarocq.ast.qglobal.t.
+Register MetaRocq.Common.BasicAst.QGlobal.make as metarocq.ast.qglobal.make.
+
 (* Template monad *)
 
 Register MetaRocq.Template.TemplateMonad.Common.cbv as metarocq.template.cbv.
