@@ -1033,6 +1033,18 @@ Module Quality.
 
   Definition var (n : nat) := qVar (QVar.var n).
 
+  Definition is_qconst {var} (q : t_ var) := 
+    match q with 
+    | qProp | qSProp | qType => true 
+    | _ => false
+    end.
+
+  Definition is_qlobal (q : t) := 
+    match q with 
+    | qVar (QVar.Global _) => true 
+    | _ => false
+    end.
+
   Definition is_var {var} (q : t_ var) :=
     match q with
     | qVar _ => true
@@ -1103,12 +1115,13 @@ Module Quality.
     #[local] Instance lt_strorder : StrictOrder lt.
     Proof.
       constructor.
-      - intros [| | |] X; inversion X.
+      - intros [| | |] X; inversion X;
         now eapply irreflexivity in H1.
+        
       - intros [| | |] [| | |] [| | |] X1 X2;
-          inversion X1; inversion X2; constructor.
-        subst.
-        etransitivity; tea. inversion X2. assumption.
+          inversion X1; inversion X2; try congruence; constructor.
+        * subst. inversion H3; subst. now etransitivity; tea.
+        * subst. inversion H3; subst. now etransitivity; tea. 
     Qed.
 
     Definition lt_compat : Proper (eq ==> eq ==> iff) lt.
@@ -1117,8 +1130,7 @@ Module Quality.
       all: try tauto.
       all: try inversion e.
       cbn in e, e'.
-      destruct t0, t1, t2, t3; cbn in *.
-      now apply QVar.lt_compat.
+      destruct t0, t1, t2, t3; cbn in *; subst; try tauto.
     Qed.
 
     Definition compare (x y : t) : comparison
@@ -1147,10 +1159,13 @@ Module Quality.
       all: repeat constructor; try apply f_equal; try assumption.
       now rewrite H.
     Qed.
+    
     Definition eq_dec (x y : t) : {eq x y} + {~ (eq x y)}.
     Proof.
       destruct x, y; try now cbn.
-      destruct t0, t1. cbn. decide equality.
+      destruct t0, t1; cbn; try tauto.
+      - decide equality.
+      - apply QGlobal.eq_dec_qglobal.
     Defined.
   End OT.
   Module OTOrig <: OrderedTypeOrig := Backport_OT OT.
@@ -1178,7 +1193,7 @@ Section QualitySetMoreFacts.
     intro H. apply QualitySetFact.add_iff in H.
     destruct H.
     - right. destruct x, z; try now cbn.
-      destruct t0, t. now cbn in H.
+      destruct t0, t; now cbn in H.
     - apply QualitySetFact.singleton_1 in H.
       left. destruct x, y; try now cbn.
       now destruct t0, t.
@@ -1869,6 +1884,12 @@ Module Sort.
     | _ => false
     end.
 
+  Definition is_qglobal (s : t) : bool :=
+    match s with
+    | sQVar (QVar.Global _) _ => true
+    | _ => false
+    end.
+
   Definition type0 : t := sType (Universe.make LevelExpr.set).
   Definition type1 : t := sType (Universe.make LevelExpr.type1).
 
@@ -2036,7 +2057,8 @@ Module Sort.
         now symmetry.
     Qed.
     Definition eq_dec (x y : t) : {x = y} + {x <> y}.
-    Proof. repeat decide equality; apply Universe.eq_dec_univ0. Defined.
+    Proof. destruct x, y; decide equality; try decide equality; try apply QGlobal.eq_dec_qglobal; try apply Universe.eq_dec_univ0; decide equality.
+    Defined.
   End OT.
   Module OTOrig <: OrderedTypeOrig := Backport_OT OT.
 End Sort.
@@ -2682,8 +2704,8 @@ Ltac cong := intuition congruence.
 Lemma leq_relevance_eq {cf φ} {s s'} :
   leq_sort φ s s' -> relevance_of_sort s = relevance_of_sort s'.
 Proof.
-  destruct s, s'; auto; intros [].
-  cbn. f_equal. destruct t, t1. cbn in *. now rewrite H.
+  destruct s, s'; auto; intros []. 
+  cbn. f_equal. destruct t, t1; cbn in *; try tauto; now rewrite H.
 Qed.
 
 Lemma leq_relevance_opt {cf φ} {s s' rel} :
@@ -2691,21 +2713,21 @@ Lemma leq_relevance_opt {cf φ} {s s' rel} :
 Proof.
   destruct s, s'; auto; intros [].
   cbn. intro Hrel. red in Hrel |- *. destruct rel; auto.
-  rewrite -Hrel; f_equal. destruct t1, t. cbn in *. now rewrite H.
+  rewrite -Hrel; f_equal; destruct t1, t; cbn in *; try tauto; now rewrite H.
 Qed.
 
 Lemma leq_relevance {cf φ} {s s' rel} :
   leq_sort φ s s' -> isSortRel s rel -> isSortRel s' rel.
 Proof.
   destruct s, s'; auto; intros [].
-  cbn. intro Hrel. destruct rel; rewrite -Hrel; f_equal; destruct t, t1; cbn in *; now rewrite H.
+  cbn. intro Hrel. destruct rel; rewrite -Hrel; f_equal; destruct t, t1; cbn in *; try tauto; now rewrite H.
 Qed.
 
 Lemma geq_relevance {cf φ} {s s' rel} :
   leq_sort φ s' s -> isSortRel s rel -> isSortRel s' rel.
 Proof.
   destruct s, s'; auto; intros [].
-  cbn. intro Hrel. destruct rel; rewrite -Hrel; f_equal; destruct t, t1; cbn in *; now rewrite H.
+  cbn. intro Hrel. destruct rel; rewrite -Hrel; f_equal; destruct t, t1; cbn in *; try tauto; now rewrite H.
 Qed.
 
 Lemma relevance_super s : relevance_of_sort (Sort.super s) = rel_of_Type.
@@ -2857,6 +2879,7 @@ Notation "x @[ u ]" := (subst_instance u x) (at level 3,
 Definition subst_instance_qvar (i : Instance.t) (qv : QVar.t) : Quality.t :=
   match qv with
   | QVar.Var n => List.nth n (Instance.qualities i) Quality.qType
+  | QVar.Global q => Quality.qVar qv
   end.
 
 #[global] Instance subst_instance_quality : UnivSubst Quality.t :=
@@ -2955,13 +2978,14 @@ Section Closedq.
     match q with
     | Quality.qSProp | Quality.qProp | Quality.qType => true
     | Quality.qVar (QVar.Var n) => (n <? k)%nat
+    | Quality.qVar (QVar.Global _) => true
     end.
 
   Definition closedq_sort (s : Sort.t) := closedq_quality (Sort.to_quality s).
 
   Definition closedq_rel (r : relevance) :=
     match r with
-    | Relevant | Irrelevant => true
+    | Relevant | Irrelevant | RelevanceVar (QVar.Global _) => true
     | RelevanceVar (QVar.Var n) => (n <? k)%nat
     end.
 
@@ -2992,7 +3016,8 @@ Section UniverseClosedSubst.
   Lemma closedu_subst_instance_quality u q
   : closedq_quality 0 q -> subst_instance_quality u q = q.
   Proof.
-    destruct q; cbnr. destruct t; discriminate.
+    destruct q; cbnr. destruct t; try discriminate. 
+    reflexivity.
   Qed.
 
   Lemma closedu_subst_instance_level_expr u e
@@ -3002,13 +3027,11 @@ Section UniverseClosedSubst.
     destruct e as [t b]. destruct t;cbnr. discriminate.
   Qed.
 
-  Lemma closedu_subst_instance_univ u s
-    : closedu_sort 0 s -> closedq_sort 0 s -> subst_instance_sort u s = s.
+  Lemma closedu_universe_instance_univ u t : 
+    closedu_universe 0 t -> 
+    subst_instance_universe u t = t.
   Proof.
-    intro H.
-    destruct s as [| | t | q t]; cbnr.
-    2: destruct q; intros f; exfalso; now apply ssrbool.notF.
-    intros _. apply f_equal. apply eq_univ'.
+    intro H. apply eq_univ'.
     destruct t as [ts H1].
     unfold closedu_universe in *;cbn in *.
     intro e; split; intro He.
@@ -3020,6 +3043,16 @@ Section UniverseClosedSubst.
     - apply map_spec. exists e; split; tas.
       symmetry; apply closedu_subst_instance_level_expr.
       apply LevelExprSet.for_all_spec in H; proper. now apply H.
+  Qed.
+
+  Lemma closedu_subst_instance_univ u s
+    : closedu_sort 0 s -> closedq_sort 0 s -> subst_instance_sort u s = s.
+  Proof.
+    intro H.
+    destruct s as [| | t | q t]; cbnr.
+    - cbn. intros _; apply f_equal. now apply closedu_universe_instance_univ.
+    - destruct q; intros f; [exfalso|]; try now apply ssrbool.notF.
+      cbn. apply f_equal. now apply closedu_universe_instance_univ.
   Qed.
 
   Lemma closedu_subst_instance u t
@@ -3102,20 +3135,21 @@ Section SubstQualityInstanceClosed.
     intro H. destruct q as [| | u1 | q1 u1 ]; cbnr.
     destruct (subst_instance_qvar u q1) eqn:esubst; auto.
     apply forallb_All in Hcl. unfold subst_instance_qvar in esubst. destruct q1.
-    unshelve eapply All_nth_error in Hcl; eauto.
-    rewrite nth_nth_error in esubst.
-    destruct (nth_error (Instance.qualities u) n); cbn; auto.
-    now rewrite esubst. inversion esubst.
+    - unshelve eapply All_nth_error in Hcl; eauto.
+      rewrite nth_nth_error in esubst.
+      destruct (nth_error (Instance.qualities u) n); cbn; auto.
+      now rewrite esubst. inversion esubst.
+    - now inversion esubst. 
   Qed.
 
   Lemma subst_instance_rel_closedq r
     : closedq_rel #|Instance.qualities u| r -> closedq_rel 0 (subst_instance u r).
   Proof using Hcl.
-    destruct r; cbnr. intro H. destruct t.
+    destruct r; cbnr. intro H. destruct t; [| auto].
     destruct (subst_instance_qvar u (QVar.Var n)) eqn:e; auto.
     apply forallb_All in Hcl. unshelve eapply All_nth_error in Hcl; eauto.
     - exact (Quality.qVar t).
-    - destruct t; inversion Hcl.
+    - destruct t; now inversion Hcl.
     - rewrite /subst_instance_qvar nth_nth_error in e.
       destruct (nth_error (Instance.qualities u) n); cbn.
       + now rewrite e.

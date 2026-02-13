@@ -101,6 +101,7 @@ struct
       Universes0.Universe.from_kernel_repr (List.hd levels) (List.tl levels)
 
   let quote_qvar q =
+    debug Pp.(fun () -> str "quoting q: " ++ Sorts.QVar.raw_pr q);
     match Sorts.QVar.repr q with
     | Sorts.QVar.Var i -> BasicAst.QVar.var (quote_int i)
     | Sorts.QVar.Global _ -> CErrors.anomaly Pp.(str "Global sort variables cannot be quoted yet.")

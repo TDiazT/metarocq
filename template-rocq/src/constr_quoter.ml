@@ -235,6 +235,7 @@ struct
   (* todo : can be deduced from quote_level, hence shoud be in the Reify module *)
 
   let quote_qvar q =
+    debug Pp.(fun () -> str "quoting q: " ++ Sorts.QVar.raw_pr q);
     match Sorts.QVar.repr q with
     | Sorts.QVar.Var i -> constr_mkApp (qvVar, [| quote_int i |])
     | Sorts.QVar.Global _ -> CErrors.anomaly (str "Global sort variables cannot be quoted yet.")
@@ -356,12 +357,6 @@ struct
   let prop =
     lazy (constr_mkApp (sProp, [|Lazy.force tuniverse |]))
 
-  let quote_sort s = match s with
-  | Sorts.Set -> constr_mkApp (sType, [| Lazy.force tuniverse; quote_universe Universe.type0 |])
-  | Sorts.Prop -> Lazy.force prop
-  | Sorts.SProp -> Lazy.force sprop
-  | Sorts.Type u -> constr_mkApp (sType, [| Lazy.force tuniverse; quote_universe u |])
-  | Sorts.QSort (_, u) -> constr_mkApp (sType, [| Lazy.force tuniverse; quote_universe u |]) (* FIXME *)
 
   let quote_sort_quality_or_set = function
     | UnivGen.QualityOrSet.(Qual (QConstant QProp)) -> Lazy.force sfProp
@@ -400,6 +395,22 @@ struct
   let quote_kn kn =
     pairl tmodpath tident (quote_modpath (KerName.modpath kn))
       (quote_ident (Label.to_id (KerName.label kn)))
+
+  let quote_global_sort q =
+    let (lib, id) = Sorts.QGlobal.repr q in
+    constr_mkApp (make_qglobal, [| (quote_dirpath lib); (quote_ident id) |])
+
+  let quote_sort s =
+  match s with
+  | Sorts.Set -> constr_mkApp (sType, [| Lazy.force tuniverse; quote_universe Universe.type0 |])
+  | Sorts.Prop -> Lazy.force prop
+  | Sorts.SProp -> Lazy.force sprop
+  | Sorts.Type u -> constr_mkApp (sType, [| Lazy.force tuniverse; quote_universe u |])
+  | Sorts.QSort (q, u) ->
+    match Sorts.QVar.repr q with
+    | Sorts.QVar.Global t -> quote_global_sort t
+    | _ -> constr_mkApp (sType, [| Lazy.force tuniverse; quote_universe u |]) (* FIXME *)
+
 
   let quote_proj ind pars args =
     constr_mkApp (tmkProjection, [| ind; pars; args |])

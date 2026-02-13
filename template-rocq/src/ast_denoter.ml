@@ -137,10 +137,19 @@ struct
     let s = unquote_string qi in
     Id.of_string s
 
+  let unquote_dirpath dp : DirPath.t =
+    let l = List.map unquote_ident dp in
+    DirPath.make l
+
   let unquote_int (q: quoted_int) : int = Caml_nat.caml_int_of_nat q
 
   let unquote_qvar (q: quoted_qvar) : Sorts.QVar.t =
-    Sorts.QVar.make_var @@ unquote_int q
+    match q with
+    | Var n -> Sorts.QVar.make_var @@ unquote_int n
+    | Global { library; id } ->
+      let library = unquote_dirpath library in
+      let id = unquote_ident  id in
+      Sorts.QVar.make_global (Sorts.QGlobal.make library id)
     (* Only variables, never [Unif] *)
 
   let unquote_relevance (r : relevance) : Sorts.relevance =
@@ -187,10 +196,6 @@ struct
     | VmCast -> VMcast
     | NativeCast -> NATIVEcast
     | Cast -> DEFAULTcast
-
-  let unquote_dirpath dp : DirPath.t =
-    let l = List.map unquote_ident dp in
-    DirPath.make l
 
   let rec unquote_modpath mp : ModPath.t =
     match mp with

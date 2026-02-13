@@ -2130,7 +2130,7 @@ Section CheckLeq.
         toProp; toProp; left; now apply NonEmptySetFacts.univ_expr_eqb_true_iff.
       + toProp; toProp; right; assumption.
     - toProp. destruct H.
-      + apply eqb_eq in H. injection H => _ e2. rewrite e2. destruct t2. cbn. apply eqb_refl.
+      + apply eqb_eq in H. injection H => _ e2. rewrite e2. destruct t2; cbn; apply eqb_refl. 
       + toProp. destruct H; repeat toProp.
         now destruct H.
     - toProp. destruct check_univs eqn:ecu; auto. red. intros v Hsat. destruct H.
@@ -2555,8 +2555,7 @@ Section CheckLeq2.
     - apply check_leqb_universe_complete_gen => //.
     - cbn. toProp.
       + cbn in Hle. destruct Hle.
-        destruct q1, q2. cbn in H |- *.
-        rewrite H. apply eqb_refl.
+        destruct q1, q2; cbn in H |- *; try tauto; rewrite H; apply eqb_refl.
       + destruct decl1, decl2; auto.
         apply check_leqb_universe_complete_gen => //.        
         now destruct Hle.

@@ -129,6 +129,8 @@ struct
   let kNative = ast "NativeCast"
   let kCast = ast "Cast"
   let qvVar = ast "qvar.var"
+  let qvQGlobal = ast "qglobal.t"
+  let make_qglobal = ast "qglobal.make"
   let qSProp = ast "quality.sprop"
   let qProp = ast "quality.prop"
   let qType = ast "quality.type"

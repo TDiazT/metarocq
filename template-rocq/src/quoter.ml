@@ -286,7 +286,9 @@ struct
         let args = Evd.expand_existential0 sigma (n, args) in
 	      let (args',acc) = quote_terms quote_term acc env sigma (Array.of_list args) in
          (Q.mkEvar (Q.quote_int (Evar.repr n)) args', acc)
-      | Constr.Sort s -> (Q.mkSort (Q.quote_sort s), acc)
+      | Constr.Sort s ->
+    debug Pp.(fun () -> str "[quote_term] Sort");
+    (Q.mkSort (Q.quote_sort s), acc)
       | Constr.Cast (c,k,t) ->
               let (c',acc) = quote_term acc env sigma c in
               let (t',acc) = quote_term acc env sigma t in

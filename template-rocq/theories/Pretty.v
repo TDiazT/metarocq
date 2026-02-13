@@ -136,6 +136,7 @@ Module PrintTermTree.
     let print_var qv :=
           match qv with
           | QVar.Var n => MRString.string_of_nat n
+          | QVar.Global q => QGlobal.to_string q 
           end in
     match s with
     | sProp => "Prop"
