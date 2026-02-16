@@ -12,7 +12,8 @@ Axiom ax_raise@{u} : forall (A : Type@{Exc;u}), A.
 
 MetaRocq Run (tmQuote ax_raise >>= tmPrint).
 
-(* This one requires -allow-rewrite-rules enabled
+(* This one requires -allow-rewrite-rules enabled *)
+(* 
 Symbol raise@{u} : forall (A : Type@{Exc;u}), A.
 
 MetaRocq Run (tmQuote raise >>= tmPrint).
