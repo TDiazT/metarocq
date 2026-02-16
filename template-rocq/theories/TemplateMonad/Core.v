@@ -16,7 +16,7 @@ Import MRMonadNotation.
 
 
 (** *** The TemplateMonad type *)
-Cumulative Inductive TemplateMonad@{t u} : Type@{t} -> Prop :=
+Cumulative Inductive TemplateMonad@{s; t u} : Type@{t} -> Prop :=
 (* Monadic operations *)
 | tmReturn : forall {A:Type@{t}}, A -> TemplateMonad A
 | tmBind : forall {A B : Type@{t}}, TemplateMonad A -> (A -> TemplateMonad B)
@@ -47,11 +47,11 @@ Cumulative Inductive TemplateMonad@{t u} : Type@{t} -> Prop :=
 
 (* Quoting and unquoting commands *)
 (* Similar to MetaRocq Quote Definition ... := ... *)
-| tmQuote : forall {A:Type@{t}}, A  -> TemplateMonad Ast.term
+| tmQuote : forall {A:Type@{s;t}}, A  -> TemplateMonad Ast.term
 (* Similar to MetaRocq Quote Recursively Definition but takes a boolean "bypass opacity" flag.
   ([true] - quote bodies of all dependencies (transparent and opaque);
    [false] -quote bodies of transparent definitions only) *)
-| tmQuoteRecTransp : forall {A:Type@{t}}, A -> bool(* bypass opacity? *) -> TemplateMonad program
+| tmQuoteRecTransp : forall {A:Type@{s;t}}, A -> bool(* bypass opacity? *) -> TemplateMonad program
 (* Quote the body of a definition or inductive. Its name need not be fully qualified *)
 | tmQuoteInductive : kername -> TemplateMonad mutual_inductive_body
 | tmQuoteUniverses : TemplateMonad ConstraintSet.t
@@ -72,7 +72,7 @@ Cumulative Inductive TemplateMonad@{t u} : Type@{t} -> Prop :=
 
 (** This version of [tmBind] flattens nesting structure; using it in deeply recursive template programs can speed things up drastically *)
 (** We use [tmBind] in the recursive position to avoid quadratic blowup in the number of [tmOptimizedBind]s *)
-Fixpoint tmOptimizedBind@{t u} {A B : Type@{t}} (v : TemplateMonad@{t u} A) : (A -> TemplateMonad@{t u} B) -> TemplateMonad@{t u} B
+Fixpoint tmOptimizedBind@{s; t u} {A B : Type@{t}} (v : TemplateMonad@{s; t u} A) : (A -> TemplateMonad@{s; t u} B) -> TemplateMonad@{s; t u} B
   := match v with
      | tmReturn x => fun f => f x
      | tmBind v k => fun f => tmOptimizedBind v (fun v => tmBind (k v) f)
@@ -81,25 +81,25 @@ Fixpoint tmOptimizedBind@{t u} {A B : Type@{t}} (v : TemplateMonad@{t u} A) : (A
      end.
 
 (** Flatten nested [tmBind] *)
-Fixpoint tmOptimize'@{t u} {A B : Type@{t}} (v : TemplateMonad@{t u} A) : (A -> TemplateMonad@{t u} B) -> TemplateMonad@{t u} B
+Fixpoint tmOptimize'@{s; t u} {A B : Type@{t}} (v : TemplateMonad@{s; t u} A) : (A -> TemplateMonad@{s; t u} B) -> TemplateMonad@{s; t u} B
   := match v with
      | tmReturn x => fun f => f x
      | tmBind v k => fun f => tmOptimize' v (fun v => tmOptimize' (k v) f)
      | tmFail msg => fun _ => tmFail msg
      | v => tmBind v
      end.
-Definition tmOptimize@{t u} {A : Type@{t}} (v : TemplateMonad@{t u} A) : TemplateMonad@{t u} A
+Definition tmOptimize@{s; t u} {A : Type@{t}} (v : TemplateMonad@{s; t u} A) : TemplateMonad@{s; t u} A
   := tmOptimize' v tmReturn.
 
 (** This allow to use notations of MonadNotation *)
-Definition TemplateMonad_UnoptimizedMonad@{t u} : Monad@{t u} TemplateMonad@{t u} :=
+Definition TemplateMonad_UnoptimizedMonad@{s; t u} : Monad@{t u} TemplateMonad@{s; t u} :=
   {| ret := @tmReturn ; bind := @tmBind |}.
 
-Definition TemplateMonad_OptimizedMonad@{t u} : Monad@{t u} TemplateMonad@{t u} :=
+Definition TemplateMonad_OptimizedMonad@{s; t u} : Monad@{t u} TemplateMonad@{s; t u} :=
   {| ret := @tmReturn ; bind := @tmOptimizedBind |}.
 
 (* We don't want to make the optimized monad an instance, because it blows up performance in some cases *)
-Definition TemplateMonad_Monad@{t u} : Monad@{t u} TemplateMonad@{t u} :=
+Definition TemplateMonad_Monad@{s; t u} : Monad@{t u} TemplateMonad@{s; t u} :=
   Eval hnf in TemplateMonad_UnoptimizedMonad.
 Global Existing Instance TemplateMonad_Monad.
 
@@ -205,30 +205,30 @@ Definition TypeInstanceOptimized : Common.TMInstance :=
 Definition TypeInstance : Common.TMInstance :=
   Eval hnf in TypeInstanceUnoptimized.
 
-Definition tmQuoteSort@{U t u} : TemplateMonad@{t u} sort
+Definition tmQuoteSort@{U t u} : TemplateMonad@{_; t u} sort
   := p <- @tmQuote Prop (Type@{U} -> True);;
      match p with
      | tProd _ (tSort s) _ => ret s
      | _ => tmFail "Anomaly: tmQuote (Type -> True) should be (tProd _ (tSort _) _)!"%bs
      end.
-Definition tmQuoteUniverse@{U t u} : TemplateMonad@{t u} Universe.t
+Definition tmQuoteUniverse@{U t u} : TemplateMonad@{_; t u} Universe.t
   := s <- @tmQuoteSort@{U t u};;
      match s with
      | sType u => ret u
      | _ => tmFail "Sort does not carry a universe (is not Type)"%bs
      end.
-Definition tmQuoteLevel@{U t u} : TemplateMonad@{t u} Level.t
+Definition tmQuoteLevel@{U t u} : TemplateMonad@{_; t u} Level.t
   := u <- tmQuoteUniverse@{U t u};;
      match Universe.get_is_level u with
      | Some l => ret l
      | None => tmFail "Universe is not a level"%bs
      end.
 
-Definition tmFix'@{a b t u} {A : Type@{a}} {B : Type@{b}} (qtmFix' : Ast.term) (f : (A -> TemplateMonad@{t u} B) -> (A -> TemplateMonad@{t u} B)) : A -> TemplateMonad@{t u} B
+Definition tmFix'@{a b t u} {A : Type@{a}} {B : Type@{b}} (qtmFix' : Ast.term) (f : (A -> TemplateMonad@{_; t u} B) -> (A -> TemplateMonad@{_; t u} B)) : A -> TemplateMonad@{_; t u} B
   := f (fun a
-        => tmFix <- tmUnquoteTyped (Ast.term -> ((A -> TemplateMonad@{t u} B) -> (A -> TemplateMonad@{t u} B)) -> A -> TemplateMonad@{t u} B) qtmFix';;
+        => tmFix <- tmUnquoteTyped (Ast.term -> ((A -> TemplateMonad@{_; t u} B) -> (A -> TemplateMonad@{_; t u} B)) -> A -> TemplateMonad@{_; t u} B) qtmFix';;
            tmFix qtmFix' f a).
-Definition tmFix@{a b t u} {A : Type@{a}} {B : Type@{b}} (f : (A -> TemplateMonad@{t u} B) -> (A -> TemplateMonad@{t u} B)) : A -> TemplateMonad@{t u} B
+Definition tmFix@{a b t u} {A : Type@{a}} {B : Type@{b}} (f : (A -> TemplateMonad@{_; t u} B) -> (A -> TemplateMonad@{_; t u} B)) : A -> TemplateMonad@{_; t u} B
   := f (fun a
         => (qA <- tmQuote A;;
             qB <- tmQuote B;;
