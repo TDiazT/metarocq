@@ -93,6 +93,36 @@ let tmDefinition (nm : ident) ?poly:(poly=false) ?opaque:(opaque=false) (typ : t
     let evm = Evd.from_env env in
     success ~st env evm (Names.Constant.canonical (Globnames.destConstRef n))
 
+let tmRewriteRule (id : ident) (rules : (string option * string * string) list) : unit tm =
+  fun ~st env evm success _fail ->
+    let one_rule (udecl, lhs, rhs) =
+      "| " ^
+      (match udecl with
+       | None -> ""
+       | Some u -> u ^ " |- ") ^
+      lhs ^ " => " ^ rhs
+    in
+    let cmd =
+      "Rewrite Rule " ^ Names.Id.to_string id ^ " :=\n" ^
+      String.concat "\n" (List.map one_rule rules) ^
+      "."
+    in
+    let parsed =
+      Procq.parse_string (Procq.eoi_entry (Pvernac.main_entry None)) cmd
+    in
+    let parsed =
+      match parsed with
+      | Some x -> x
+      | None -> CErrors.user_err (Pp.str "Empty command while parsing tmRewriteRule")
+    in
+    let vst = Vernacstate.freeze_full_state () in
+    let _vst' =
+      Vernacinterp.interp ~intern:Vernacinterp.fs_intern ~verbosely:false ~st:vst parsed
+    in
+    let env = Global.env () in
+    let evm = Evd.from_env env in
+    success ~st env evm ()
+
 let tmAxiom (nm : ident) ?poly:(poly=false) (typ : term) : kername tm =
   fun ~st env evm success _fail ->
     let univs = Evd.univ_entry ~poly evm in

@@ -31,6 +31,7 @@ Cumulative Inductive TemplateMonad@{t u} : Type@{t} -> Prop :=
 (* Return the defined constant *)
 | tmLemma : ident -> forall A : Type@{t}, TemplateMonad A
 | tmDefinitionRed_ : forall (opaque : bool), ident -> option reductionStrategy -> forall {A:Type@{t}}, A -> TemplateMonad A
+| tmRewriteRule_ : ident -> list (option string * string * string) -> TemplateMonad unit
 | tmAxiomRed : ident -> option reductionStrategy -> forall A : Type@{t}, TemplateMonad A
 | tmVariable : ident -> Type@{t} -> TemplateMonad unit
 | tmSymbol : ident -> Type@{t} -> TemplateMonad unit
@@ -121,6 +122,14 @@ Definition tmMkInductive' (mind : mutual_inductive_body) : TemplateMonad unit
 
 Definition tmAxiom id := tmAxiomRed id None.
 Definition tmDefinition id {A} t := @tmDefinitionRed_ false id None A t.
+Definition tmRewriteRule (id : ident) (rules : list (string * string)) : TemplateMonad unit :=
+  tmRewriteRule_ id
+    (List.map (fun x =>
+                 let '(lhs, rhs) := x in
+                 (None, lhs, rhs))
+              rules).
+Definition tmRewriteRuleU (id : ident) (rules : list (option string * string * string)) : TemplateMonad unit :=
+  tmRewriteRule_ id rules.
 
 (** We keep the original behaviour of [tmQuoteRec]: it quotes all the dependencies regardless of the opaqueness settings *)
 Definition tmQuoteRec {A} (a : A) := tmQuoteRecTransp a true.

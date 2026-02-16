@@ -254,6 +254,7 @@ Register MetaRocq.Template.TemplateMonad.Core.tmVariable as metarocq.templatemon
 Register MetaRocq.Template.TemplateMonad.Core.tmSymbol as metarocq.templatemonad.prop.tmSymbol.
 Register MetaRocq.Template.TemplateMonad.Core.tmLemma as metarocq.templatemonad.prop.tmLemma.
 Register MetaRocq.Template.TemplateMonad.Core.tmDefinitionRed_ as metarocq.templatemonad.prop.tmDefinitionRed_.
+Register MetaRocq.Template.TemplateMonad.Core.tmRewriteRule_ as metarocq.templatemonad.prop.tmRewriteRule_.
 Register MetaRocq.Template.TemplateMonad.Core.tmAxiomRed as metarocq.templatemonad.prop.tmAxiomRed.
 Register MetaRocq.Template.TemplateMonad.Core.tmMkDefinition as metarocq.templatemonad.prop.tmMkDefinition.
 Register MetaRocq.Template.TemplateMonad.Core.tmMkInductive as metarocq.templatemonad.prop.tmMkInductive.

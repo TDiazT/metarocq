@@ -23,6 +23,7 @@ type template_monad =
 
     (* creating definitions *)
   | TmDefinition of Constr.t * Constr.t * Constr.t * Constr.t * Constr.t
+  | TmRewriteRule of Constr.t * Constr.t
   | TmDefinitionTerm of Constr.t * Constr.t * Constr.t * Constr.t
   | TmLemma of Constr.t * Constr.t
   | TmLemmaTerm of Constr.t * Constr.t
