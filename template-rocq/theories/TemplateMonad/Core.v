@@ -46,12 +46,6 @@ Cumulative Inductive TemplateMonad@{t u} : Type@{t} -> Prop :=
 | tmCurrentModPath : unit -> TemplateMonad modpath
 
 (* Quoting and unquoting commands *)
-(* Similar to MetaRocq Quote Definition ... := ... *)
-| tmQuote : forall {A:Type@{t}}, A  -> TemplateMonad Ast.term
-(* Similar to MetaRocq Quote Recursively Definition but takes a boolean "bypass opacity" flag.
-  ([true] - quote bodies of all dependencies (transparent and opaque);
-   [false] -quote bodies of transparent definitions only) *)
-| tmQuoteRecTransp : forall {A:Type@{t}}, A -> bool(* bypass opacity? *) -> TemplateMonad program
 (* Quote the body of a definition or inductive. Its name need not be fully qualified *)
 | tmQuoteInductive : kername -> TemplateMonad mutual_inductive_body
 | tmQuoteUniverses : TemplateMonad ConstraintSet.t
@@ -69,6 +63,20 @@ Cumulative Inductive TemplateMonad@{t u} : Type@{t} -> Prop :=
 | tmExistingInstance : hint_locality -> global_reference -> TemplateMonad unit
 | tmInferInstance : option reductionStrategy -> forall A : Type@{t}, TemplateMonad (option_instance A)
 .
+
+(* Moving outside of the inductive definition only to make it sort polymorphic but
+   avoid having to update all of the TemplateMonad definition to be sort poylmorphic *)
+(* Similar to MetaRocq Quote Definition ... := ... *)
+Polymorphic Axiom tmQuote@{s; t u}
+  : forall {A : Type@{s;t}}, A -> TemplateMonad@{t u} Ast.term.
+
+(* Moving outside of the inductive definition only to make it sort polymorphic but
+   avoid having to update all of the TemplateMonad definition to be sort poylmorphic *)
+(* Similar to MetaRocq Quote Recursively Definition but takes a boolean "bypass opacity" flag.
+  ([true] - quote bodies of all dependencies (transparent and opaque);
+   [false] -quote bodies of transparent definitions only) *)
+Polymorphic Axiom tmQuoteRecTransp@{s; t u}
+  : forall {A : Type@{s;t}}, A -> bool(* bypass opacity? *) -> TemplateMonad@{t u} program.
 
 (** This version of [tmBind] flattens nesting structure; using it in deeply recursive template programs can speed things up drastically *)
 (** We use [tmBind] in the recursive position to avoid quadratic blowup in the number of [tmOptimizedBind]s *)

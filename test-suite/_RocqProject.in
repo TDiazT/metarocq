@@ -41,6 +41,7 @@ order_rec.v
 # primitive.v
 proj.v
 quotation_notations.v
+quote_global_sort.v
 reduction_test.v
 run_in_tactic.v
 safechecker_test.v
@@ -56,4 +57,3 @@ unfold.v
 univ.v
 vs.v
 ind_fresh_univ.v
-
