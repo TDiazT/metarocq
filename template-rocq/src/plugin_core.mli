@@ -48,6 +48,7 @@ val reduce : Environ.env -> Evd.evar_map -> reduction_strategy -> term -> Evd.ev
 val tmEval : reduction_strategy -> term -> term tm
 
 val tmDefinition : ident -> ?poly:PolyFlags.t -> ?opaque:bool -> term option -> term -> kername tm
+val tmRewriteRule : ident -> (string option * string * string) list -> unit tm
 val tmAxiom : ident -> ?poly:PolyFlags.t -> term -> kername tm
 val tmLemma : ident -> ?poly:PolyFlags.t -> term -> kername tm
 

@@ -51,6 +51,7 @@ tmFix.v
 tmFreshName.v
 tmInferInstance.v
 tmQuoteModule.v
+tmRewriteRule.v
 tmVariable.v
 unfold.v
 univ.v

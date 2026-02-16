@@ -20,6 +20,7 @@ let (ptmReturn,
 
      ptmLemma,
      ptmDefinitionRed,
+     ptmRewriteRule,
      ptmAxiomRed,
      ptmMkDefinition,
      ptmMkInductive,
@@ -64,6 +65,7 @@ let (ptmReturn,
 
    r_template_monad_prop_p "tmLemma",
    r_template_monad_prop_p "tmDefinitionRed_",
+   r_template_monad_prop_p "tmRewriteRule_",
    r_template_monad_prop_p "tmAxiomRed",
    r_template_monad_prop_p "tmMkDefinition",
    r_template_monad_prop_p "tmMkInductive",
@@ -174,6 +176,7 @@ type template_monad =
 
     (* creating definitions *)
   | TmDefinition of Constr.t * Constr.t * Constr.t * Constr.t * Constr.t
+  | TmRewriteRule of Constr.t * Constr.t
   | TmDefinitionTerm of Constr.t * Constr.t * Constr.t * Constr.t
   | TmLemma of Constr.t * Constr.t
   | TmLemmaTerm of Constr.t * Constr.t
@@ -283,6 +286,11 @@ let next_action env evd (pgm : constr) : template_monad * _ =
     | opaque::name::s::typ::body::[] ->
       (TmDefinition (opaque, name, s, typ, body), universes)
     | _ -> monad_failure "tmDefinitionRed" 4
+  else if eq_gr ptmRewriteRule then
+    match args with
+    | name::rules::[] ->
+      (TmRewriteRule (name, rules), universes)
+    | _ -> monad_failure "tmRewriteRule" 2
   else if eq_gr ttmDefinition then
     match args with
     | opaque::name::typ::body::[] ->

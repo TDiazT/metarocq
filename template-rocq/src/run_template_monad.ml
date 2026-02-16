@@ -67,6 +67,14 @@ let unquote_map_option f trm =
 
 let unquote_option = unquote_map_option (fun x -> x)
 
+let unquote_rewrite_rule trm : string option * string * string =
+  let lhsrhs, rhs = unquote_pair trm in
+  let udecl, lhs = unquote_pair lhsrhs in
+  let udecl = unquote_map_option unquote_string udecl in
+  let lhs = unquote_string lhs in
+  let rhs = unquote_string rhs in
+  (udecl, lhs, rhs)
+
 let rec unquote_pos trm : int =
   let (h,args) = app_full trm [] in
   match args with
@@ -412,6 +420,15 @@ let rec run_template_program_rec ~poly ?(intactic=false) (k : Constr.t Plugin_co
       Plugin_core.run ~st
         (Plugin_core.tmDefinition name ~poly ~opaque typ body) env evm
         (fun ~st env evm res -> k ~st env evm (quote_kn res))
+  | TmRewriteRule (name, rules) ->
+    if intactic
+    then not_in_tactic "tmRewriteRule"
+    else
+      let name = unquote_ident (reduce_all env evm name) in
+      let rules = List.map unquote_rewrite_rule (unquote_list (reduce_all env evm rules)) in
+      Plugin_core.run ~st
+        (Plugin_core.tmRewriteRule name rules) env evm
+        (fun ~st env evm _ -> k ~st env evm (Lazy.force unit_tt))
   | TmLemmaTerm (name, typ) ->
     let ident = unquote_ident (reduce_all env evm name) in
     let evm,typ = denote_term env evm (reduce_all env evm typ) in
