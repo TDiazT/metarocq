@@ -204,6 +204,7 @@ struct
   let cInvariant = ast "variance.Invariant"
   let cMonomorphic_ctx = ast "Monomorphic_ctx"
   let cPolymorphic_ctx = ast "Polymorphic_ctx"
+  let mk_bound_names = ast "mk_bound_names"
   let tUContext = ast "UContext.t"
   let tUContextmake' = ast "UContext.make'"
   let tAUContext = ast "AUContext.t"

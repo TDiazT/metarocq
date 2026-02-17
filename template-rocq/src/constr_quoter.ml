@@ -299,14 +299,13 @@ struct
 
   let quote_univ_context uctx =
     let { UVars.quals = qarr; UVars.univs = uarr} = (UVars.UContext.names uctx) in
-    let () = if not (CArray.is_empty qarr) then
-        CErrors.user_err Pp.(str "Quoting sort polymorphic ucontext not yet supported.")
-    in
-    let idents = to_coq_listl tname (CArray.map_to_list quote_name uarr) in
-    let inst' = quote_univ_instance (UVars.UContext.instance uctx) in
-    let const' = quote_univ_constraints (UVars.UContext.univ_constraints uctx) in
-    let p = constr_mkApp (tUContextmake', [|inst'; const'|]) in
-    constr_mkApp (tUContextmake, [|idents; p |])
+    let unames = to_coq_listl tname (CArray.map_to_list quote_name uarr) in
+    let qnames = to_coq_listl  tname (CArray.map_to_list quote_name qarr) in
+    let inst = quote_univ_instance (UVars.UContext.instance uctx) in
+    let constraints = quote_univ_constraints (UVars.UContext.univ_constraints uctx) in
+    let p = constr_mkApp (tUContextmake', [|inst; constraints|]) in
+    let bound_names = constr_mkApp (mk_bound_names, [|qnames; unames|]) in
+    constr_mkApp (tUContextmake, [|bound_names; p |])
 
   (* let quote_variance_entry var =
     let listvar = constr_mkAppl (tlist, [| tVariance |]) in
@@ -318,12 +317,11 @@ struct
 
  let quote_abstract_univ_context uctx =
     let { UVars.quals = qarr; UVars.univs = uarr} = (UVars.AbstractContext.names uctx) in
-    let () = if not (CArray.is_empty qarr) then
-        CErrors.user_err Pp.(str "Quoting sort polymorphic abstract universe context not yet supported.")
-    in
-    let idents = to_coq_listl tname (CArray.map_to_list quote_name uarr) in
-    let const' = quote_univ_constraints (UVars.UContext.univ_constraints (UVars.AbstractContext.repr uctx)) in
-    constr_mkApp (tAUContextmake, [|idents; const'|])
+    let unames = to_coq_listl tname (CArray.map_to_list quote_name uarr) in
+    let qnames = to_coq_listl  tname (CArray.map_to_list quote_name qarr) in
+    let constraints = quote_univ_constraints (UVars.UContext.univ_constraints (UVars.AbstractContext.repr uctx)) in
+    let bound_names = constr_mkApp (mk_bound_names, [|qnames; unames|]) in
+    constr_mkApp (tAUContextmake, [|bound_names; constraints|])
 
   let mkMonomorphic_ctx () = Lazy.force cMonomorphic_ctx
 

@@ -142,6 +142,8 @@ Register MetaRocq.Common.Universes.ConstraintSet.empty as metarocq.ast.Constrain
 Register MetaRocq.Common.Universes.ConstraintSet.add as metarocq.ast.ConstraintSet.add.
 Register MetaRocq.Common.Universes.ConstraintSet.elements as metarocq.ast.ConstraintSet.elements.
 
+Register MetaRocq.Common.Universes.mk_bound_names as metarocq.ast.mk_bound_names.
+
 Register MetaRocq.Common.Universes.UContext.t as metarocq.ast.UContext.t.
 Register MetaRocq.Common.Universes.UContext.make as metarocq.ast.UContext.make.
 Register MetaRocq.Common.Universes.AUContext.t as metarocq.ast.AUContext.t.
