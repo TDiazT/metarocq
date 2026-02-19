@@ -248,7 +248,7 @@ struct
     | QConstant QType -> Lazy.force qType
     | QVar q -> constr_mkApp (qVar, [| quote_qvar q |])
 
-  let quote_instance u =
+  let quote_univ_instance u =
     let qarr, uarr = UVars.Instance.to_array u in
     (* we assume that valid instances do not contain [Prop] or [SProp] *)
 	constr_mkApp
@@ -343,7 +343,7 @@ struct
       constr_mkApp (cPolymorphic_entry, [| ctx |])
 
   let quote_ugraph (g : UGraph.t) =
-    let inst' = quote_instance UVars.Instance.empty in
+    let inst' = quote_univ_instance UVars.Instance.empty in
     let const' = quote_univ_constraints (fst (UGraph.constraints_of_universes g)) in
     let uctx = constr_mkApp (tUContextmake, [|inst' ; const'|]) in
     constr_mkApp (tadd_global_constraints, [|constr_mkApp (cMonomorphic_ctx, [| uctx |]); Lazy.force tinit_graph|])

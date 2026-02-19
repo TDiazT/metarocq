@@ -311,7 +311,7 @@ struct
       | _ -> bad_term_verb trm "unquote_sort_type_too_many_args"
     else bad_term_verb trm "unquote_sort_type_no_args"
 
-  let unquote_instance evm trm (* of type instance *) =
+  let unquote_universe_instance evm trm (* of type instance *) =
     let qs, us = unquote_pair trm in
     let ql = unquote_list qs in
     let ul = unquote_list us in
@@ -416,7 +416,7 @@ struct
 
   let inspect_term (t:Constr.t)
   : (Constr.t, quoted_int, quoted_ident, quoted_name, quoted_sort, quoted_cast_kind, quoted_kernel_name,
-    quoted_inductive, quoted_relevance, quoted_univ_level, quoted_instance, quoted_proj,
+    quoted_inductive, quoted_relevance, quoted_univ_level, quoted_univ_instance, quoted_proj,
     quoted_int63, quoted_float64, quoted_pstring) structure_of_term =
     (* debug (fun () -> Pp.(str "denote_term" ++ spc () ++ print_term t)) ; *)
     let (h,args) = app_full t [] in

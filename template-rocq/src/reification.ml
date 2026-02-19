@@ -27,7 +27,7 @@ sig
   type quoted_univ_constraint
   type quoted_univ_constraints
   type quoted_univ_level
-  type quoted_instance
+  type quoted_univ_instance
   type quoted_univ_context
   type quoted_contextset
   type quoted_abstract_univ_context

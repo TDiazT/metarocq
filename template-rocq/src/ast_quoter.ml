@@ -33,7 +33,7 @@ struct
   type quoted_univ_constraint = Universes0.UnivConstraint.t
   type quoted_univ_constraints = Universes0.ConstraintSet.t
   type quoted_univ_level = Universes0.Level.t
-  type quoted_instance = Universes0.Instance.t
+  type quoted_univ_instance = Universes0.Instance.t
   type quoted_univ_context = Universes0.UContext.t
   type quoted_contextset = Universes0.ContextSet.t
   type quoted_abstract_univ_context = Universes0.AUContext.t
@@ -176,7 +176,7 @@ struct
 
   let quote_univ_level = quote_level
 
-  let quote_instance (i : UVars.Instance.t) : quoted_instance =
+  let quote_univ_instance (i : UVars.Instance.t) : quoted_univ_instance =
     let qarr, uarr = UVars.Instance.to_array i in
     (* we assume that valid instances do not contain [Prop] or [SProp] *)
     try Universes0.Instance.make
@@ -206,8 +206,9 @@ struct
     let qnames = CArray.map_to_list quote_name qarr  in
     let unames = CArray.map_to_list quote_name uarr  in
     let inst = UVars.UContext.instance uctx  in
-    let constraints = UVars.UContext.constraints uctx in
-    (Universes0.mk_bound_names qnames unames, (quote_instance inst, quote_univ_constraints constraints))
+    (* FIXME: Missing elim constraints *)
+    let _, constraints = UVars.UContext.constraints uctx in
+    (Universes0.mk_bound_names qnames unames, (quote_univ_instance inst, quote_univ_constraints constraints))
 
   let quote_contextset (uctx : Univ.ContextSet.t) : quoted_contextset =
     let levels = List.map quote_level (Univ.Level.Set.elements (Univ.ContextSet.levels uctx)) in
@@ -218,7 +219,8 @@ struct
     let {UVars.quals = qnames; UVars.univs = unames} = UVars.AbstractContext.names uctx in
     let qnames = CArray.map_to_list quote_name qnames in
     let unames = CArray.map_to_list quote_name unames in
-    let constraints = UVars.UContext.constraints (UVars.AbstractContext.repr uctx) in
+    (* FIXME: Missing elim constraints *)
+    let _, constraints = UVars.UContext.constraints (UVars.AbstractContext.repr uctx) in
     (Universes0.mk_bound_names qnames unames, quote_univ_constraints constraints)
 
   let quote_context_decl na b t =
@@ -393,7 +395,7 @@ struct
 
   let inspectTerm (t : term) :  (term, quoted_int, quoted_ident, quoted_name, quoted_sort, quoted_cast_kind,
     quoted_kernel_name, quoted_inductive, quoted_relevance, quoted_univ_level,
-    quoted_instance, quoted_proj,
+    quoted_univ_instance, quoted_proj,
     quoted_int63, quoted_float64, quoted_pstring) structure_of_term =
    match t with
   | Coq_tRel n -> ACoq_tRel n

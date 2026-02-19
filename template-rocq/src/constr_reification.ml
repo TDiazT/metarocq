@@ -27,7 +27,7 @@ struct
   type quoted_univ_constraint = Constr.t (* of type Universes.univ_constraint *)
   type quoted_univ_constraints = Constr.t (* of type Universes.constraints *)
   type quoted_univ_level = Constr.t (* of type Universes.Level.t *)
-  type quoted_instance = Constr.t (* of type Universes.universe_instance *)
+  type quoted_univ_instance = Constr.t (* of type Universes.universe_instance *)
   type quoted_univ_context = Constr.t (* of type Universes.UContext.t *)
   type quoted_contextset = Constr.t (* of type Universes.ContextSet.t *)
   type quoted_abstract_univ_context = Constr.t (* of type Universes.AUContext.t *)
