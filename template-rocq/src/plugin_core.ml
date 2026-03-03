@@ -95,30 +95,17 @@ let tmDefinition (nm : ident) ?(poly=PolyFlags.default) ?opaque:(opaque=false) (
 
 let tmRewriteRule (id : ident) (rules : (string option * string * string) list) : unit tm =
   fun ~st env evm success _fail ->
-    let one_rule (udecl, lhs, rhs) =
-      "| " ^
-      (match udecl with
-       | None -> ""
-       | Some u -> u ^ " |- ") ^
-      lhs ^ " => " ^ rhs
+    let parse_univ_decl = function
+      | None -> None
+      | Some s -> Some (Procq.parse_string (Procq.eoi_entry Procq.Prim.univ_decl) s)
     in
-    let cmd =
-      "Rewrite Rule " ^ Names.Id.to_string id ^ " :=\n" ^
-      String.concat "\n" (List.map one_rule rules) ^
-      "."
-    in
-    let parsed =
-      Procq.parse_string (Procq.eoi_entry (Pvernac.main_entry None)) cmd
-    in
-    let parsed =
-      match parsed with
-      | Some x -> x
-      | None -> CErrors.user_err (Pp.str "Empty command while parsing tmRewriteRule")
-    in
-    let vst = Vernacstate.freeze_full_state () in
-    let _vst' =
-      Vernacinterp.interp ~intern:Vernacinterp.fs_intern ~verbosely:false ~st:vst parsed
-    in
+    let parse_constr s = Procq.parse_string (Procq.eoi_entry Procq.Constr.lconstr) s in
+    Flags.with_modified_ref Flags.in_synterp_phase (fun _ -> None) (fun () ->
+      let rules =
+        List.map (fun (udecl, lhs, rhs) -> (parse_univ_decl udecl, parse_constr lhs, parse_constr rhs)) rules
+      in
+      ComRewriteRule.do_rules id rules)
+      ();
     let env = Global.env () in
     let evm = Evd.from_env env in
     success ~st env evm ()

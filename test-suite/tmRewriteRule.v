@@ -48,10 +48,10 @@ Inductive bool : Type@{Exc; Set} :=
  | false.
  
 Rewrite Rule raise_nat_match :=
-| match raise nat as t0 return ?P with 
+| match raise nat as t0 return (?P : Type@{Exc; Set}) with 
   | O => _
   | _ => _ 
-  end => raise (?P@{t0 := raise nat}).
+  end => raise ((?P@{t0 := raise nat}) : Type@{Exc; Set}).
   
 Eval cbn in match raise nat with | O => O | S n => S n end.
 Eval cbn in match raise nat with | O => true | S n => false end.
@@ -59,10 +59,9 @@ Eval cbn in match raise nat with | O => true | S n => false end.
 Eval cbn in match raise bool with | true => O | false => S O end.
   
 MetaRocq Run (tmRewriteRule "raise_bool_match"
-    [ ("match raise bool as t0 return ?P with | true => _ | _ => _ end", "raise (?P@{t0 := raise bool})")]).
+    [ ("match raise bool as t0 return (?P : Type@{Exc; Set}) with | true => _ | _ => _ end", "raise ((?P@{t0 := raise bool}) : Type@{Exc; Set})")]).
     
 Eval cbn in match raise bool with | true => O | false => S O end.
     
 
   
-
