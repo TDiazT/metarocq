@@ -261,6 +261,8 @@ struct
   let mkString s = Coq_tString s
   let mkArray u arr ~default ~ty = Coq_tArray (u, Array.to_list arr, default, ty)
 
+  let relevance_of_sort s = Universes0.relevance_of_quality @@ Universes0.Sort.to_quality s
+
   let rec seq f t =
     if f < t then
       f :: seq (f + 1) t
@@ -289,7 +291,8 @@ struct
     Coq_tCoFix (block, b)
 
   let mkCase (ind, npar, r) (univs, pars, pctx, pret) c brs =
-    let info = { ci_ind = ind; ci_npar = npar; ci_relevance = r } in
+    let rel = relevance_of_sort r in
+    let info = { ci_ind = ind; ci_npar = npar; ci_relevance = rel } in
     let pred = { pparams = Array.to_list pars;
                  puinst = univs;
                  pcontext = List.rev (Array.to_list pctx);
@@ -310,8 +313,8 @@ struct
         cstr_indices = indices;
         cstr_type = ty;
         cstr_arity = arity }) ctrs in
-    let projs = List.map (fun (proj_name, proj_relevance, proj_type) ->
-        { proj_name; proj_relevance; proj_type }) projs in
+    let projs = List.map (fun (proj_name, proj_annot, proj_type) ->
+        { proj_name; proj_relevance = relevance_of_sort proj_annot; proj_type }) projs in
     { ind_name = id; ind_type = ty;
       ind_indices = indices;
       ind_sort = sort;

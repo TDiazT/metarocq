@@ -74,7 +74,7 @@ sig
   val mkConst : quoted_kernel_name -> quoted_univ_instance -> t
   val mkInd : quoted_inductive -> quoted_univ_instance -> t
   val mkConstruct : quoted_inductive * quoted_int -> quoted_univ_instance -> t
-  val mkCase : (quoted_inductive * quoted_int * quoted_relevance) ->
+  val mkCase : (quoted_inductive * quoted_int * quoted_sort) ->
     (quoted_univ_instance * t array * quoted_aname array * t) -> (* predicate: instance, params, binder names, return type *)
      t -> (quoted_aname array * t) list (* branches *) -> t
   val mkProj : quoted_proj -> t -> t
@@ -150,7 +150,7 @@ sig
       t list (* indices in the conclusion *) *
       t (* constr type *) *
       quoted_int (* arity (w/o lets) *)) list *
-    (quoted_ident * quoted_relevance *  t (* projection type *)) list *
+    (quoted_ident * quoted_sort *  t (* projection type *)) list *
     quoted_relevance ->
     quoted_one_inductive_body
 
@@ -331,11 +331,11 @@ struct
           let mib = Environ.lookup_mind (fst mind) (snd env) in
           add_inductive mind mib acc)
 
-      | Constr.Case (ci,u,pars, ((predctx, pred), relevance), iv, discr, brs) ->
+      | Constr.Case (ci,u,pars, ((predctx, pred), annot), iv, discr, brs) ->
         let ind = Q.quote_inductive (Q.quote_kn (Names.MutInd.canonical (fst ci.Constr.ci_ind)),
                                       Q.quote_int (snd ci.Constr.ci_ind)) in
         let npar = Q.quote_int ci.Constr.ci_npar in
-        let q_relevance = Q.quote_relevance relevance in
+        let q_annot = Q.quote_sort annot in
         let acc, q_pars = CArray.fold_left_map (fun acc par -> let (qt, acc) = quote_term acc env sigma par in acc, qt) acc pars in
         let qu = Q.quote_univ_instance u in
         let pctx = CaseCompat.case_predicate_context (snd env) ci u pars predctx in
@@ -349,7 +349,7 @@ struct
             let qctx = quote_name_annots brnas in
               ((qctx, qbody) :: bodies, acc))
           ([],acc) cbrs ci.Constr.ci_cstr_nargs in
-        (Q.mkCase (ind, npar, q_relevance) (qu, q_pars, qpctx, qpred) qdiscr (List.rev branches), acc)
+        (Q.mkCase (ind, npar, q_annot) (qu, q_pars, qpctx, qpred) qdiscr (List.rev branches), acc)
 
       | Constr.Fix fp -> quote_fixpoint acc env sigma fp
       | Constr.CoFix fp -> quote_cofixpoint acc env sigma fp
@@ -447,10 +447,10 @@ struct
                                         Context.Rel.instance Constr.mkRel 0 ctxwolet) in
                 let indbinder = Context.Rel.Declaration.LocalAssum (Context.annotR (Names.Name id),indty) in
                 let envpars = push_rel_context (indbinder :: ctxwolet) env in
-                let ps, acc = CArray.fold_right3 (fun proj ty rel (ls,acc) ->
+                let ps, acc = CArray.fold_right3 (fun proj ty annot (ls,acc) ->
                   let (ty, acc) = quote_term acc envpars sigma ty in
                   let na = Q.quote_ident (Names.Label.to_id proj) in
-                  let rel = Q.quote_relevance rel in
+                  let rel = Q.quote_sort annot in
                   ((na, rel, ty) :: ls, acc)) projections tys relevances ([],acc)
                 in ps, acc
             | _ -> [], acc

@@ -113,7 +113,7 @@ struct
         evm, Constr.mkIndU (i, u)
       | ACoq_tCase (ci, p, c, brs) ->
         let ind = D.unquote_inductive ci.aci_ind in
-        let relevance = D.unquote_relevance ci.aci_relevance in
+        (* let relevance = D.unquote_relevance ci.aci_relevance in *)
         let ci = Inductiveops.make_case_info (Global.env ()) ind Constr.MatchStyle in
         let evm, puinst = D.unquote_universe_instance evm p.auinst in
         let evm, pars = map_evm (aux env) evm p.apars in
@@ -121,6 +121,7 @@ struct
         let napctx = CArray.map_of_list D.unquote_aname (List.rev p.apcontext) in
         let pctx = CaseCompat.case_predicate_context env ci puinst pars napctx in
         let evm, pret = aux (Environ.push_rel_context pctx env) evm p.apreturn in
+        let pret_sort = Constr.destSort @@ EConstr.to_constr evm @@ EConstr.mkSort @@ Retyping.get_sort_of env evm @@ Retyping.get_type_of env evm (EConstr.of_constr pret) in
         let evm, c = aux env evm c in
         let brs = List.map (fun { abcontext = bctx; abbody = bbody } ->
           let nabctx = CArray.map_of_list D.unquote_aname (List.rev bctx) in
@@ -132,7 +133,7 @@ struct
         in
         let evm, brs = array_map_evm denote_br evm brs in
         (* todo: reify better case_info *)
-        let pcase = (ci, puinst, pars, ((napctx, pret), relevance), Constr.NoInvert, c, brs) in
+        let pcase = (ci, puinst, pars, ((napctx, pret), pret_sort), Constr.NoInvert, c, brs) in
         evm, Constr.mkCase pcase
       | ACoq_tFix (lbd, i) ->
         let (names,types,bodies,rargs) = (List.map (fun p->p.adname) lbd,  List.map (fun p->p.adtype) lbd, List.map (fun p->p.adbody) lbd,

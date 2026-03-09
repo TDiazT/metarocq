@@ -16,7 +16,7 @@ MetaRocq Run (
   tmRewriteRule "pplus_n_0_rewrite_tm"
     [ ("f_rr ?n 0", "?n") ]).
 
-About f_rr.    
+About f_rr.
 Infix "++" := f_rr.
 
 Eval cbn in 1 ++ 0.
@@ -25,11 +25,11 @@ Eval cbn in 0 ++ 1.
 
 MetaRocq Run (tmRewriteRule "pplus_rewrite"
     [ ("?n ++ S ?m", "S (?n ++ ?m)");
-      ("S ?n ++ ?m", "S (?n ++ ?m)"); 
+      ("S ?n ++ ?m", "S (?n ++ ?m)");
       ("0 ++ ?n", "?n") ]).
-      
-Eval cbn in 0 ++ 1.    
-Eval cbn in 1 ++ 3.   
+
+Eval cbn in 0 ++ 1.
+Eval cbn in 1 ++ 3.
 Eval cbn in 3 ++ 1.
 
 Set Universe Polymorphism.
@@ -40,28 +40,56 @@ Sort Exc.
 Symbol (raise : forall (A : Type@{Exc; Set}), A).
 
 Inductive nat : Type@{Exc; Set} :=
- | O : nat 
+ | O : nat
  | S : nat -> nat.
 
 Inductive bool : Type@{Exc; Set} :=
  | true
  | false.
- 
+
+(* Generate catch *)
+MetaRocq Run (tmSymbol "bool_catch" (forall (P : bool -> Type)
+                                            (Htrue : P true)
+                                            (Hfalse : P false)
+                                            (Hraise : P (raise bool))
+                                            (b : bool), P b)).
+Set Printing All.
+Set Printing Universes.
+Print bool_catch.
+
+Eval cbn in (bool_catch (fun _ => True) I I I true).
+
+Rewrite Rules bool_catch_red :=
+  | bool_catch _ ?Htrue _ _ true => ?Htrue.
+
+Eval cbn in (bool_catch (fun _ => True) I I I true).
+Eval cbn in (bool_catch (fun _ => True) I I I false).
+Eval cbn in (bool_catch (fun _ => True) I I I (raise bool)).
+
+MetaRocq Run (tmRewriteRule "bool_catch_red_false"
+  [("bool_catch _ _ ?Hfalse _ false", "?Hfalse");
+  ("bool_catch _ _ _ ?Hraise (raise bool)", "?Hraise")
+
+  ]
+
+).
+
+Eval cbn in (bool_catch (fun _ => True) I I I false).
+Eval cbn in (bool_catch (fun _ => True) I I I (raise bool)).
+
 Rewrite Rule raise_nat_match :=
-| match raise nat as t0 return (?P : Type@{Exc; Set}) with 
+| match raise nat as t0 return@{Exc;Set} ?P with
   | O => _
-  | _ => _ 
+  | _ => _
   end => raise ((?P@{t0 := raise nat}) : Type@{Exc; Set}).
-  
+
 Eval cbn in match raise nat with | O => O | S n => S n end.
 Eval cbn in match raise nat with | O => true | S n => false end.
 
 Eval cbn in match raise bool with | true => O | false => S O end.
-  
-MetaRocq Run (tmRewriteRule "raise_bool_match"
-    [ ("match raise bool as t0 return (?P : Type@{Exc; Set}) with | true => _ | _ => _ end", "raise ((?P@{t0 := raise bool}) : Type@{Exc; Set})")]).
-    
-Eval cbn in match raise bool with | true => O | false => S O end.
-    
 
-  
+MetaRocq Run (tmRewriteRule "raise_bool_match"
+    [ ("match raise bool as t0 return@{Exc;Set} ?P with | true => _ | _ => _ end", "raise ((?P@{t0 := raise bool}) : Type@{Exc; Set})")]).
+
+Eval cbn in match raise bool with | true => O | false => S O end.
+

@@ -246,7 +246,8 @@ let unquote_one_inductive_entry env evm trm (* of type one_inductive_entry *) : 
        evm, { mind_entry_typename = id ;
               mind_entry_arity = ar;
               mind_entry_consnames = cnames;
-              mind_entry_lc = ctms }
+              mind_entry_lc = ctms;
+              mind_entry_proj_annot = None }
     | _ -> bad_term_verb trm "unquote_one_inductive_entry"
   else
     not_supported_verb trm "unquote_one_inductive_entry"
@@ -346,7 +347,7 @@ let declare_inductive (env: Environ.env) (evm: Evd.evar_map) (infer_univs : bool
       let fields, _ = Term.decompose_prod_decls (List.hd oie.mind_entry_lc) in
       let fieldimpls = List.map (fun _ -> []) fields in
       let pfs = List.map (fun _ -> dflt_pf) fields in
-      let projections = Record.Internal.declare_projections ind ~kind:Decls.Definition ~inhabitant_id pfs fieldimpls in
+      let projections = Record.Internal.declare_projections ind ~kind:Decls.Definition ~inhabitant_id pfs [] fieldimpls in
       let struc = Structures.Structure.make (Global.env()) ind projections in
       Record.Internal.declare_structure_entry struc
     in

@@ -214,20 +214,20 @@ Definition TypeInstanceOptimized : Common.TMInstance :=
 Definition TypeInstance : Common.TMInstance :=
   Eval hnf in TypeInstanceUnoptimized.
 
-Definition tmQuoteSort@{U t u} : TemplateMonad@{_; t u} sort
+Definition tmQuoteSort@{U t u +} : TemplateMonad@{_; t u} sort
   := p <- @tmQuote Prop (Type@{U} -> True);;
      match p with
      | tProd _ (tSort s) _ => ret s
      | _ => tmFail "Anomaly: tmQuote (Type -> True) should be (tProd _ (tSort _) _)!"%bs
      end.
-Definition tmQuoteUniverse@{U t u} : TemplateMonad@{_; t u} Universe.t
-  := s <- @tmQuoteSort@{U t u};;
+Definition tmQuoteUniverse@{U t u +} : TemplateMonad@{_; t u} Universe.t
+  := s <- @tmQuoteSort@{U t u _};;
      match s with
      | sType u => ret u
      | _ => tmFail "Sort does not carry a universe (is not Type)"%bs
      end.
-Definition tmQuoteLevel@{U t u} : TemplateMonad@{_; t u} Level.t
-  := u <- tmQuoteUniverse@{U t u};;
+Definition tmQuoteLevel@{U t u +} : TemplateMonad@{_; t u} Level.t
+  := u <- tmQuoteUniverse@{U t u _ _};;
      match Universe.get_is_level u with
      | Some l => ret l
      | None => tmFail "Universe is not a level"%bs
@@ -237,13 +237,13 @@ Definition tmFix'@{a b t u} {A : Type@{a}} {B : Type@{b}} (qtmFix' : Ast.term) (
   := f (fun a
         => tmFix <- tmUnquoteTyped (Ast.term -> ((A -> TemplateMonad@{_; t u} B) -> (A -> TemplateMonad@{_; t u} B)) -> A -> TemplateMonad@{_; t u} B) qtmFix';;
            tmFix qtmFix' f a).
-Definition tmFix@{a b t u} {A : Type@{a}} {B : Type@{b}} (f : (A -> TemplateMonad@{_; t u} B) -> (A -> TemplateMonad@{_; t u} B)) : A -> TemplateMonad@{_; t u} B
+Definition tmFix@{a b t u +} {A : Type@{a}} {B : Type@{b}} (f : (A -> TemplateMonad@{_; t u} B) -> (A -> TemplateMonad@{_; t u} B)) : A -> TemplateMonad@{_; t u} B
   := f (fun a
         => (qA <- tmQuote A;;
             qB <- tmQuote B;;
-            qa <- tmQuoteLevel@{a _ _};;
-            qb <- tmQuoteLevel@{b _ _};;
-            qt <- tmQuoteLevel@{t _ _};;
-            qu <- tmQuoteLevel@{u _ _};;
+            qa <- tmQuoteLevel@{a _ _ _ _ _};;
+            qb <- tmQuoteLevel@{b _ _ _ _ _};;
+            qt <- tmQuoteLevel@{t _ _ _ _ _};;
+            qu <- tmQuoteLevel@{u _ _ _ _ _};;
             let self := tConst (MPfile ["Core"; "TemplateMonad"; "Template"; "MetaRocq"], "tmFix'")%bs (Instance.make [] [qa;qb;qt;qu]) in
             @tmFix'@{a b t u} A B (mkApps self [qA; qB]) f a)).
