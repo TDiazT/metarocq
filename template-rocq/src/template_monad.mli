@@ -31,7 +31,8 @@ type template_monad =
   | TmAxiomTerm of Constr.t * Constr.t
   | TmMkInductive of Constr.t * Constr.t
   | TmVariable of Constr.t * Constr.t
-  | TmSymbol of Constr.t * Constr.t
+  | TmSymbol of Constr.t * Constr.t * Constr.t * Constr.t
+  (* name, unfold_fix, universes_decl, typ *)
 
   | TmFreshName of Constr.t
 

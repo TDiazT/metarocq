@@ -144,7 +144,26 @@ struct
 
   let unquote_int = unquote_nat
 
-  let unquote_qvar q = Sorts.QVar.make_var (unquote_int q)
+  let unquote_qvar q =
+    let (h, args) = app_full q [] in
+    if constr_equall h qvVar then
+      match args with
+      | [n] | [_; n] -> Sorts.QVar.make_var (unquote_int n)
+      | _ -> bad_term_verb q "unquote_qvar_var_args"
+    else if constr_equall h qvGlobal then
+      match args with
+      | [g] | [_; g] ->
+        let (h', args') = app_full g [] in
+        if constr_equall h' make_qglobal then
+          match args' with
+          | [lib; id] ->
+            let dp = DirPath.make (List.map unquote_ident (unquote_list lib)) in
+            Sorts.QVar.make_global
+              (Sorts.QGlobal.make dp (unquote_ident id))
+          | _ -> bad_term_verb g "unquote_qglobal_args"
+        else bad_term_verb g "unquote_qglobal_head"
+      | _ -> bad_term_verb q "unquote_qvar_global_args"
+    else bad_term_verb q "unquote_qvar"
 
   let unquote_relevance trm =
     if Constr.equal trm (Lazy.force tRelevant) then
@@ -297,18 +316,28 @@ struct
     let (h,args) = app_full trm [] in
     if constr_equall h sSProp then
       match args with
-         | [_univ] -> evm, Sorts.sprop
+         | [] | [_] -> evm, Sorts.sprop
          | _ -> bad_term_verb trm "unquote_sort_sprop_args"
     else if constr_equall h sProp then
       match args with
-         | [_univ] -> evm, Sorts.prop
+         | [] | [_] -> evm, Sorts.prop
          | _ -> bad_term_verb trm "unquote_sort_prop_args"
     else if constr_equall h sType then
       match args with
+      | [x] ->
+          let evm, u = unquote_universe evm x in
+          evm, Sorts.sort_of_univ u
       | [_univ; x] ->
           let evm, u = unquote_universe evm x in
           evm, Sorts.sort_of_univ u
-      | _ -> bad_term_verb trm "unquote_sort_type_too_many_args"
+      | _ -> bad_term_verb trm "unquote_sort_type_args"
+    else if constr_equall h sQVar then
+      match args with
+      | [q; x] | [_; _; q; x] ->
+        let qvar_val = unquote_qvar q in
+        let evm, u = unquote_universe evm x in
+        evm, Sorts.qsort qvar_val u
+      | _ -> bad_term_verb trm "unquote_sort_qvar_args"
     else bad_term_verb trm "unquote_sort_type_no_args"
 
   let unquote_universe_instance evm trm (* of type instance *) =

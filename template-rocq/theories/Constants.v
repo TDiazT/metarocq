@@ -126,6 +126,9 @@ Register MetaRocq.Common.Universes.Build_nonEmptyLevelExprSet as metarocq.ast.un
 Register MetaRocq.Common.Universes.Sort.sSProp as metarocq.ast.sort.sprop.
 Register MetaRocq.Common.Universes.Sort.sProp as metarocq.ast.sort.prop.
 Register MetaRocq.Common.Universes.Sort.sType as metarocq.ast.sort.type.
+Register MetaRocq.Common.Universes.Sort.sQVar as metarocq.ast.sort.qvar.
+Register MetaRocq.Common.BasicAst.QVar.Var as metarocq.ast.qvar.var.
+Register MetaRocq.Common.BasicAst.QVar.Global as metarocq.ast.qvar.Global.
 
 
 Register MetaRocq.Common.Universes.Variance.t as metarocq.ast.variance.t.
@@ -143,6 +146,7 @@ Register MetaRocq.Common.Universes.ConstraintSet.add as metarocq.ast.ConstraintS
 Register MetaRocq.Common.Universes.ConstraintSet.elements as metarocq.ast.ConstraintSet.elements.
 
 Register MetaRocq.Common.Universes.mk_bound_names as metarocq.ast.mk_bound_names.
+Register MetaRocq.Common.Universes.mkBoundNames as metarocq.ast.mkBoundNames.
 
 Register MetaRocq.Common.Universes.UContext.t as metarocq.ast.UContext.t.
 Register MetaRocq.Common.Universes.UContext.make as metarocq.ast.UContext.make.
@@ -253,7 +257,7 @@ Register MetaRocq.Template.TemplateMonad.Core.tmMsg as metarocq.templatemonad.pr
 Register MetaRocq.Template.TemplateMonad.Core.tmFail as metarocq.templatemonad.prop.tmFail.
 Register MetaRocq.Template.TemplateMonad.Core.tmEval as metarocq.templatemonad.prop.tmEval.
 Register MetaRocq.Template.TemplateMonad.Core.tmVariable as metarocq.templatemonad.prop.tmVariable.
-Register MetaRocq.Template.TemplateMonad.Core.tmSymbol as metarocq.templatemonad.prop.tmSymbol.
+Register MetaRocq.Template.TemplateMonad.Core.tmSymbol_ as metarocq.templatemonad.prop.tmSymbol_.
 Register MetaRocq.Template.TemplateMonad.Core.tmLemma as metarocq.templatemonad.prop.tmLemma.
 Register MetaRocq.Template.TemplateMonad.Core.tmDefinitionRed_ as metarocq.templatemonad.prop.tmDefinitionRed_.
 Register MetaRocq.Template.TemplateMonad.Core.tmRewriteRule_ as metarocq.templatemonad.prop.tmRewriteRule_.

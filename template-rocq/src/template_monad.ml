@@ -25,7 +25,7 @@ let (ptmReturn,
      ptmMkDefinition,
      ptmMkInductive,
      ptmVariable,
-     ptmSymbol,
+     ptmSymbol_,
 
      ptmFreshName,
 
@@ -70,7 +70,7 @@ let (ptmReturn,
    r_template_monad_prop_p "tmMkDefinition",
    r_template_monad_prop_p "tmMkInductive",
    r_template_monad_prop_p "tmVariable",
-   r_template_monad_prop_p "tmSymbol",
+   r_template_monad_prop_p "tmSymbol_",
 
    r_template_monad_prop_p "tmFreshName",
 
@@ -184,7 +184,8 @@ type template_monad =
   | TmAxiomTerm of Constr.t * Constr.t
   | TmMkInductive of Constr.t * Constr.t
   | TmVariable of Constr.t * Constr.t
-  | TmSymbol of Constr.t * Constr.t
+  | TmSymbol of Constr.t * Constr.t * Constr.t * Constr.t
+  (* name, unfold_fix, universes_decl, typ *)
 
   | TmFreshName of Constr.t
 
@@ -411,10 +412,11 @@ let next_action env evd (pgm : constr) : template_monad * _ =
     match args with
     | name::ty::[] -> (TmVariable (name,ty) , universes)
     | _ -> monad_failure "tmVariable" 2
-  else if eq_gr ptmSymbol then
+  else if eq_gr ptmSymbol_ then
     match args with
-    | name :: ty :: [] -> (TmSymbol (name, ty), universes)
-    | _ -> monad_failure "tmSymbol" 2
+    | name :: unfold_fix :: udecl :: ty :: [] ->
+      (TmSymbol (name, unfold_fix, udecl, ty), universes)
+    | _ -> monad_failure "tmSymbol_" 4
   else if eq_gr ttmInductive then
     match args with
     | inferu :: mind::[] -> (TmMkInductive (inferu, mind), universes)

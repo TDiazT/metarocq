@@ -161,6 +161,44 @@ let denote_names evm trm : _ * Name.t array =
   let l = unquote_list trm in
   evm, CArray.map_of_list unquote_name l
 
+let unquote_bound_names trm =
+  (* trm : bound_names = mk_bound_names qnames unames *)
+  let (h, args) = app_full trm [] in
+  if constr_equall h mk_bound_names_ctor || constr_equall h mk_bound_names then
+    match args with
+    | qnames :: unames :: [] ->
+      (CArray.map_of_list unquote_name (unquote_list qnames),
+       CArray.map_of_list unquote_name (unquote_list unames))
+    | _ -> bad_term_verb trm "unquote_bound_names"
+  else
+    not_supported_verb trm "unquote_bound_names"
+
+let unquote_universes_decl env evm trm : Evd.evar_map * UState.universes_entry =
+  let trm = reduce_all env evm trm in
+  let (h, args) = app_full trm [] in
+  if constr_equall h cMonomorphic_ctx then
+    evm, UState.Monomorphic_entry Univ.ContextSet.empty
+  else if constr_equall h cPolymorphic_ctx then
+    match args with
+    | [aucctx] ->
+      let aucctx = reduce_all env evm aucctx in
+      let bound_names_term, constraints_term = unquote_pair aucctx in
+      let bound_names_term = reduce_all env evm bound_names_term in
+      let qnames, unames = unquote_bound_names bound_names_term in
+      let n_quals = Array.length qnames in
+      let n_univs = Array.length unames in
+      let qvars = Array.init n_quals (fun i -> Sorts.Quality.QVar (Sorts.QVar.make_var i)) in
+      let uvars = Array.init n_univs Level.var in
+      let inst = Instance.of_array (qvars, uvars) in
+      let evm, cst = unquote_constraints env evm constraints_term in
+      let uctx = UContext.make
+        { UVars.quals = qnames; UVars.univs = unames }
+        (inst, PConstraints.of_univs cst) in
+      evm, UState.Polymorphic_entry uctx
+    | _ -> bad_term_verb trm "unquote_universes_decl"
+  else
+    not_supported_verb trm "unquote_universes_decl"
+
 let denote_ucontext env evm trm (* of type UContext.t *) : _ * UVars.UContext.t =
   let l, c = unquote_pair trm in
   let evm, names = denote_names evm l in
@@ -378,13 +416,24 @@ let rec run_template_program_rec ~poly ?(intactic=false) (k : Constr.t Plugin_co
       Declare.declare_variable ~typing_flags:None ~name ~kind (SectionLocalAssum { typ; impl=Glob_term.Explicit; univs=empty_mono_univ_entry });
       let env = Global.env () in
       k ~st env evm (Lazy.force unit_tt)
- | TmSymbol (name, typ) ->
+ | TmSymbol (name, unfold_fix, udecl, typ_term) ->
     if intactic then not_in_tactic "tmSymbol"
     else
       let name = unquote_ident (reduce_all env evm name) in
-      let udecl = UState.default_univ_decl in
-      let univs = Evd.check_univ_decl ~poly evm udecl in
-      let entry = Declare.symbol_entry ~univs ~unfold_fix:false typ in
+      let unfold_fix = unquote_bool (reduce_all env evm unfold_fix) in
+      let udecl_reduced = reduce_all env evm udecl in
+      let (h, _) = app_full udecl_reduced [] in
+      let evm, typ = denote_term env evm (reduce_all env evm typ_term) in
+      let evm, univs =
+        if constr_equall h cMonomorphic_ctx then
+          (* For monomorphic symbols, extract universe context from evm so that
+             elaboration-generated universe levels are included. *)
+          evm, Evd.univ_entry ~poly evm
+        else
+          let evm, entry = unquote_universes_decl env evm udecl_reduced in
+          evm, (entry, UnivNames.empty_binders)
+      in
+      let entry = Declare.symbol_entry ~univs ~unfold_fix typ in
       let kn = Declare.declare_constant ~name ~kind:Decls.IsSymbol (Declare.SymbolEntry entry) in
       let () = Declare.assumption_message name in
       let env = Global.env () in

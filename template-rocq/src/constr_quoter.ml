@@ -238,7 +238,10 @@ struct
     debug Pp.(fun () -> str "quoting q: " ++ Sorts.QVar.raw_pr q);
     match Sorts.QVar.repr q with
     | Sorts.QVar.Var i -> constr_mkApp (qvVar, [| quote_int i |])
-    | Sorts.QVar.Global _ -> CErrors.anomaly (str "Global sort variables cannot be quoted yet.")
+    | Sorts.QVar.Global g ->
+      let (lib, id) = Sorts.QGlobal.repr g in
+      let lib_q = to_coq_listl tident (List.map quote_ident (DirPath.repr lib)) in
+      constr_mkApp (qvGlobal, [| constr_mkApp (make_qglobal, [| lib_q; quote_ident id |]) |])
     | Sorts.QVar.Unif _ -> CErrors.anomaly (str "Non-instantiated quality variables cannot be quoted.")
 
   let quote_quality q =
@@ -402,9 +405,7 @@ struct
   | Sorts.SProp -> Lazy.force sprop
   | Sorts.Type u -> constr_mkApp (sType, [| Lazy.force tuniverse; quote_universe u |])
   | Sorts.QSort (q, u) ->
-    match Sorts.QVar.repr q with
-    | Sorts.QVar.Global t -> quote_global_sort t
-    | _ -> constr_mkApp (sType, [| Lazy.force tuniverse; quote_universe u |]) (* FIXME *)
+    constr_mkApp (sQVar, [| quote_qvar q; quote_universe u |])
 
 
   let quote_proj ind pars args =

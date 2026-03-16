@@ -34,7 +34,7 @@ Cumulative Inductive TemplateMonad@{s; t u} : Type@{t} -> Prop :=
 | tmRewriteRule_ : ident -> list (option string * string * string) -> TemplateMonad unit
 | tmAxiomRed : ident -> option reductionStrategy -> forall A : Type@{t}, TemplateMonad A
 | tmVariable : ident -> Type@{t} -> TemplateMonad unit
-| tmSymbol : ident -> Type@{t} -> TemplateMonad unit
+| tmSymbol_ : ident -> bool (* unfold_fix *) -> universes_decl -> Ast.term -> TemplateMonad unit
 
 (* Guaranteed to not cause "... already declared" error *)
 | tmFreshName : ident -> TemplateMonad ident
@@ -130,6 +130,11 @@ Definition tmRewriteRule (id : ident) (rules : list (string * string)) : Templat
               rules).
 Definition tmRewriteRuleU (id : ident) (rules : list (option string * string * string)) : TemplateMonad unit :=
   tmRewriteRule_ id rules.
+Definition tmSymbol (id : ident) (unfold_fix : bool) (typ : Type) : TemplateMonad unit :=
+  t <- tmQuote typ ;;
+  tmSymbol_ id unfold_fix Monomorphic_ctx t.
+Definition tmSymbolU (id : ident) (unfold_fix : bool) (udecl : universes_decl) (t : Ast.term) : TemplateMonad unit :=
+  tmSymbol_ id unfold_fix udecl t.
 
 (** We keep the original behaviour of [tmQuoteRec]: it quotes all the dependencies regardless of the opaqueness settings *)
 Definition tmQuoteRec {A} (a : A) := tmQuoteRecTransp a true.

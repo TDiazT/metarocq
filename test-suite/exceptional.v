@@ -17,6 +17,8 @@ Symbol (raise@{u} : forall (A : Type@{Exc;u}), A).
 
 MetaRocq Quote Definition tmRaise := raise.
 
+Print tmRaise.
+
 Definition tmAsIndRef (ty : term) : TemplateMonad (term * inductive * Instance.t) :=
   match ty with
   | tInd ind u => ret (ty, ind, u)
