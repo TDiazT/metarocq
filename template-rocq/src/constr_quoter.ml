@@ -171,24 +171,10 @@ struct
     let s = Id.to_string i in
     quote_string s
 
-  let quote_relevance r =
-    match r with
-    | Sorts.Relevant -> Lazy.force tRelevant
-    | Sorts.Irrelevant -> Lazy.force tIrrelevant
-    | Sorts.RelevanceVar _ -> Lazy.force tRelevant (* TODO *)
-
   let quote_name n =
     match n with
       Names.Name id -> constr_mkApp (nNamed, [| quote_ident id |])
     | Names.Anonymous -> Lazy.force nAnon
-
-  let quote_aname ann_n =
-    let { Context.binder_name = n; Context.binder_relevance = relevance} = ann_n in
-    let r = quote_relevance relevance in
-    match n with
-    | Names.Anonymous -> Constr.mkApp (Lazy.force tmkBindAnn, [|Lazy.force tname; Lazy.force nAnon; r|])
-    | Names.Name id -> let nm = Constr.mkApp (Lazy.force nNamed, [| quote_ident id |]) in
-                       Constr.mkApp (Lazy.force tmkBindAnn, [| Lazy.force tname; nm; r|])
 
   let quote_cast_kind k =
     match k with
@@ -237,12 +223,26 @@ struct
   let quote_qvar q =
     debug Pp.(fun () -> str "quoting q: " ++ Sorts.QVar.raw_pr q);
     match Sorts.QVar.repr q with
-    | Sorts.QVar.Var i -> constr_mkApp (qvVar, [| quote_int i |])
+    | Sorts.QVar.Var i -> constr_mkApp (qvVar, [| Lazy.force tnat; quote_int i |])
     | Sorts.QVar.Global g ->
       let (lib, id) = Sorts.QGlobal.repr g in
       let lib_q = to_coq_listl tident (List.map quote_ident (DirPath.repr lib)) in
-      constr_mkApp (qvGlobal, [| constr_mkApp (make_qglobal, [| lib_q; quote_ident id |]) |])
+      constr_mkApp (qvGlobal, [| Lazy.force tnat; constr_mkApp (make_qglobal, [| lib_q; quote_ident id |]) |])
     | Sorts.QVar.Unif _ -> CErrors.anomaly (str "Non-instantiated quality variables cannot be quoted.")
+
+  let quote_relevance r =
+    match r with
+    | Sorts.Relevant -> Lazy.force tRelevant
+    | Sorts.Irrelevant -> Lazy.force tIrrelevant
+    | Sorts.RelevanceVar q -> constr_mkApp (tRelevanceVar, [| quote_qvar q |])
+
+  let quote_aname ann_n =
+    let { Context.binder_name = n; Context.binder_relevance = relevance} = ann_n in
+    let r = quote_relevance relevance in
+    match n with
+    | Names.Anonymous -> Constr.mkApp (Lazy.force tmkBindAnn, [|Lazy.force tname; Lazy.force nAnon; r|])
+    | Names.Name id -> let nm = Constr.mkApp (Lazy.force nNamed, [| quote_ident id |]) in
+                       Constr.mkApp (Lazy.force tmkBindAnn, [| Lazy.force tname; nm; r|])
 
   let quote_quality q =
     let open Sorts.Quality in
@@ -250,7 +250,7 @@ struct
     | QConstant QSProp -> Lazy.force qSProp
     | QConstant QProp -> Lazy.force qProp
     | QConstant QType -> Lazy.force qType
-    | QVar q -> constr_mkApp (qVar, [| quote_qvar q |])
+    | QVar q -> constr_mkApp (qVar, [| Lazy.force tQVar; quote_qvar q |])
 
   let quote_univ_instance u =
     let qarr, uarr = UVars.Instance.to_array u in
@@ -405,7 +405,7 @@ struct
   | Sorts.SProp -> Lazy.force sprop
   | Sorts.Type u -> constr_mkApp (sType, [| Lazy.force tuniverse; quote_universe u |])
   | Sorts.QSort (q, u) ->
-    constr_mkApp (sQVar, [| quote_qvar q; quote_universe u |])
+    constr_mkApp (sQVar, [| Lazy.force tQVar; Lazy.force tuniverse; quote_qvar q; quote_universe u |])
 
 
   let quote_proj ind pars args =

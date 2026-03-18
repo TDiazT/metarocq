@@ -128,6 +128,7 @@ struct
   let kVmCast = ast "VmCast"
   let kNative = ast "NativeCast"
   let kCast = ast "Cast"
+  let tQVar = ast "qvar.t"
   let qvVar = ast "qvar.var"
   let qvGlobal = ast "qvar.Global"
   let qvQGlobal = ast "qglobal.t"

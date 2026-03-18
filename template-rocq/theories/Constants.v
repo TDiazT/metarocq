@@ -57,6 +57,7 @@ Register BinNums.Z0 as metarocq.Z.zero.
 Register MetaRocq.Common.BasicAst.relevance as metarocq.ast.relevance.
 Register MetaRocq.Common.BasicAst.Relevant as metarocq.ast.Relevant.
 Register MetaRocq.Common.BasicAst.Irrelevant as metarocq.ast.Irrelevant.
+Register MetaRocq.Common.BasicAst.RelevanceVar as metarocq.ast.RelevanceVar.
 Register MetaRocq.Common.BasicAst.mkBindAnn as metarocq.ast.mkBindAnn.
 Register MetaRocq.Common.BasicAst.aname as metarocq.ast.aname.
 
@@ -95,6 +96,10 @@ Register MetaRocq.Common.BasicAst.fresh_evar_id as metarocq.ast.fresh_evar_id.
 (* Universes *)
 
 Register MetaRocq.Common.Universes.Quality.t as metarocq.ast.quality.t.
+Register MetaRocq.Common.Universes.Quality.qSProp as metarocq.ast.quality.sprop.
+Register MetaRocq.Common.Universes.Quality.qProp  as metarocq.ast.quality.prop.
+Register MetaRocq.Common.Universes.Quality.qType  as metarocq.ast.quality.type.
+Register MetaRocq.Common.Universes.Quality.qVar   as metarocq.ast.quality.qvar.
 Register MetaRocq.Common.Universes.Instance.make as metarocq.ast.universe.instance.make.
 
 Register MetaRocq.Common.Universes.allowed_eliminations as metarocq.ast.allowed_eliminations.
@@ -127,6 +132,7 @@ Register MetaRocq.Common.Universes.Sort.sSProp as metarocq.ast.sort.sprop.
 Register MetaRocq.Common.Universes.Sort.sProp as metarocq.ast.sort.prop.
 Register MetaRocq.Common.Universes.Sort.sType as metarocq.ast.sort.type.
 Register MetaRocq.Common.Universes.Sort.sQVar as metarocq.ast.sort.qvar.
+Register MetaRocq.Common.BasicAst.QVar.t as metarocq.ast.qvar.t.
 Register MetaRocq.Common.BasicAst.QVar.Var as metarocq.ast.qvar.var.
 Register MetaRocq.Common.BasicAst.QVar.Global as metarocq.ast.qvar.Global.
 

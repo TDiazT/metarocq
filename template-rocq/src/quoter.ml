@@ -74,7 +74,7 @@ sig
   val mkConst : quoted_kernel_name -> quoted_univ_instance -> t
   val mkInd : quoted_inductive -> quoted_univ_instance -> t
   val mkConstruct : quoted_inductive * quoted_int -> quoted_univ_instance -> t
-  val mkCase : (quoted_inductive * quoted_int * quoted_sort) ->
+  val mkCase : (quoted_inductive * quoted_int * quoted_relevance) ->
     (quoted_univ_instance * t array * quoted_aname array * t) -> (* predicate: instance, params, binder names, return type *)
      t -> (quoted_aname array * t) list (* branches *) -> t
   val mkProj : quoted_proj -> t -> t
@@ -335,7 +335,7 @@ struct
         let ind = Q.quote_inductive (Q.quote_kn (Names.MutInd.canonical (fst ci.Constr.ci_ind)),
                                       Q.quote_int (snd ci.Constr.ci_ind)) in
         let npar = Q.quote_int ci.Constr.ci_npar in
-        let q_annot = Q.quote_sort annot in
+        let q_annot = Q.quote_relevance (Sorts.relevance_of_sort annot) in
         let acc, q_pars = CArray.fold_left_map (fun acc par -> let (qt, acc) = quote_term acc env sigma par in acc, qt) acc pars in
         let qu = Q.quote_univ_instance u in
         let pctx = CaseCompat.case_predicate_context (snd env) ci u pars predctx in

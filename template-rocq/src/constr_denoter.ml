@@ -308,7 +308,7 @@ struct
       | _ -> bad_term_verb trm "unquote_quality_qtype_args"
     else if constr_equall h qVar then
       match args with
-      | [q] -> QVar (unquote_qvar q)
+      | [q] | [_; q] -> QVar (unquote_qvar q)
       | _ -> bad_term_verb trm "unquote_quality_qvar_args"
     else bad_term_verb trm "unquote_quality"
 
