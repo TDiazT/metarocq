@@ -291,8 +291,7 @@ struct
     Coq_tCoFix (block, b)
 
   let mkCase (ind, npar, r) (univs, pars, pctx, pret) c brs =
-    let rel = relevance_of_sort r in
-    let info = { ci_ind = ind; ci_npar = npar; ci_relevance = rel } in
+    let info = { ci_ind = ind; ci_npar = npar; ci_relevance = r } in
     let pred = { pparams = Array.to_list pars;
                  puinst = univs;
                  pcontext = List.rev (Array.to_list pctx);
