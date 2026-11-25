@@ -157,10 +157,6 @@ let denote_ucontextset env evm trm (* of type ContextSet.t *) : _ * Univ.Context
   let evm, c = unquote_constraints env evm c in
   evm, (i, c)
 
-let denote_names evm trm : _ * Name.t array =
-  let l = unquote_list trm in
-  evm, CArray.map_of_list unquote_name l
-
 let unquote_bound_names trm =
   (* trm : bound_names = mk_bound_names qnames unames *)
   let (h, args) = app_full trm [] in
@@ -199,15 +195,17 @@ let unquote_universes_decl env evm trm : Evd.evar_map * UState.universes_entry =
   else
     not_supported_verb trm "unquote_universes_decl"
 
+(* A UContext.t is bound_names × (Instance.t × ConstraintSet.t), where both
+   bound_names and Instance.t carry the quality variables next to the
+   universe levels. *)
 let denote_ucontext env evm trm (* of type UContext.t *) : _ * UVars.UContext.t =
-  let l, c = unquote_pair trm in
-  let evm, names = denote_names evm l in
-  let l, c = unquote_pair c in
-  let l = unquote_list l in
-  let evm, vars = map_evm unquote_level evm l in
+  let bn, c = unquote_pair (reduce_all env evm trm) in
+  let qnames, unames = unquote_bound_names (reduce_all env evm bn) in
+  let inst, c = unquote_pair c in
+  let evm, inst = ConstrBaseDenoter.unquote_universe_instance evm inst in
   let evm, c = unquote_constraints env evm c in
-  let inst = Instance.of_array ([||], Array.of_list vars) in
-  evm, (UVars.UContext.make { UVars.quals = [||]; UVars.univs = names} (inst, PConstraints.of_univs c))
+  evm, (UVars.UContext.make { UVars.quals = qnames; UVars.univs = unames }
+          (inst, PConstraints.of_univs c))
 
 let denote_aucontext env evm trm (* of type AbstractContext.t *) : _ * UVars.AbstractContext.t =
   let i, c = unquote_pair trm in
