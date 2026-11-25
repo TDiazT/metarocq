@@ -327,7 +327,7 @@ struct
       | [x] ->
           let evm, u = unquote_universe evm x in
           evm, Sorts.sort_of_univ u
-      | [_univ; x] ->
+      | [_univ; x] | [_; _univ; x] ->
           let evm, u = unquote_universe evm x in
           evm, Sorts.sort_of_univ u
       | _ -> bad_term_verb trm "unquote_sort_type_args"
