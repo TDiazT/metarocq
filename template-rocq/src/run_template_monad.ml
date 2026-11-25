@@ -406,11 +406,33 @@ let fresh_instance_of_udecl env evm udecl =
     let auctx = UVars.AbstractContext.make (UVars.UContext.names uctx) (UVars.UContext.constraints uctx) in
     Evd.with_sort_context_set ~sort_rigid:true Evd.univ_rigid evm (UnivGen.fresh_instance auctx)
 
+(* The universe declaration that fixes the universes of a definition to [inst],
+   the instance [fresh_instance_of_udecl] gives for [udecl], with the
+   constraints of [udecl] and no others, as [Lemma id@{...}] does. *)
+let fixed_univ_decl_of_udecl env evm udecl inst : UState.universe_decl =
+  let _, entry = unquote_universes_decl env evm udecl in
+  match entry with
+  | UState.Monomorphic_entry _ -> UState.default_univ_decl
+  | UState.Polymorphic_entry uctx ->
+    let auctx = UVars.AbstractContext.make (UVars.UContext.names uctx) (UVars.UContext.constraints uctx) in
+    let csts = UVars.AbstractContext.instantiate inst auctx in
+    let qs, us = UVars.Instance.to_array inst in
+    let qvars =
+      Array.fold_right (fun q acc -> match q with
+        | Sorts.Quality.QVar v -> v :: acc
+        | _ -> acc) qs [] in
+    { UState.univdecl_qualities = qvars;
+      univdecl_extensible_qualities = false;
+      univdecl_elim_constraints = PConstraints.qualities csts;
+      univdecl_instance = Array.to_list us;
+      univdecl_extensible_instance = false;
+      univdecl_univ_constraints = PConstraints.univs csts;
+      univdecl_extensible_constraints = false }
+
 (* Declares [ident : typ] through Program's obligations, leaving its body as a
-   hole. [tactic], or the current Obligation Tactic when it is absent, is
-   tried on the obligation, and [k] receives the constant once it is
-   defined. *)
-let declare_lemma ~poly ~st ?tactic env evm ident typ k =
+   hole. The current Obligation Tactic is tried on the obligation, and [k]
+   receives the constant once it is defined. *)
+let declare_lemma ~poly ~st env evm ident typ k =
   let kind = Decls.(IsDefinition Definition) in
   let hole = CAst.make (Constrexpr.CHole (None)) in
   let evm, (c, _) = Constrintern.interp_casted_constr_evars_impls ~program_mode:true env evm hole (EConstr.of_constr typ) in
@@ -424,7 +446,7 @@ let declare_lemma ~poly ~st ?tactic env evm ident typ k =
       k ~st:pm env evm (EConstr.to_constr evm t)) in
   let cinfo = Declare.CInfo.make ~name:ident ~typ:cty () in
   let info = Declare.Info.make ~poly ~kind () in
-  Declare.Obls.add_definition ~pm:st ~cinfo ~info ~body:c ~uctx ?tactic ~obl_hook ~opaque:false obls
+  Declare.Obls.add_definition ~pm:st ~cinfo ~info ~body:c ~uctx ~obl_hook ~opaque:false obls
 
 (* Gets the Ltac tactic named by the qualid [s]. *)
 let ltac_of_qualid s : unit Proofview.tactic =
@@ -565,11 +587,19 @@ let rec run_template_program_rec ~poly ?(intactic=false) (k : Constr.t Plugin_co
   | TmLemmaU (name, udecl, typ, tac) ->
     let ident = unquote_ident (reduce_all env evm name) in
     let tactic = ltac_of_qualid (unquote_string (reduce_all env evm tac)) in
-    let evm, inst = fresh_instance_of_udecl env evm (reduce_all env evm udecl) in
+    let udecl = reduce_all env evm udecl in
+    let evm, inst = fresh_instance_of_udecl env evm udecl in
+    let fixed = fixed_univ_decl_of_udecl env evm udecl inst in
     let evm, typ = denote_term env evm (reduce_all env evm typ) in
     let typ = Vars.subst_instance_constr inst typ in
-    declare_lemma ~poly ~st ~tactic env evm ident typ
-      (fun ~st env evm _ -> k ~st env evm (Lazy.force unit_tt))
+    (* As [Lemma ident@{udecl} : typ. Proof. tac. Qed.] *)
+    let info = Declare.Info.make ~poly ~kind:Decls.(IsProof Lemma) ~udecl:fixed () in
+    let cinfo = Declare.CInfo.make ~name:ident ~typ:(EConstr.of_constr typ) () in
+    let proof = Declare.Proof.start ~info ~cinfo evm in
+    let proof, _ = Declare.Proof.by env tactic proof in
+    let _ = Declare.Proof.save_regular ~proof ~opaque:Vernacexpr.Opaque ~idopt:None in
+    let env = Global.env () in
+    k ~st env (Evd.from_env env) (Lazy.force unit_tt)
 
   | TmQuote trm ->
     (* user should do the reduction (using tmEval) if they want *)
