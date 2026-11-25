@@ -394,6 +394,48 @@ let declare_inductive (env: Environ.env) (evm: Evd.evar_map) (infer_univs : bool
 let not_in_tactic s =
   CErrors.user_err  (str ("You can not use " ^ s ^ " in a tactic."))
 
+(* Instantiates the qualities and universe levels bound by the quoted
+   universes_decl [udecl] with fresh rigid ones in [evm]. A term whose
+   universes are the bound variables of [udecl] becomes well-scoped in [evm]
+   once this instance is substituted into it. *)
+let fresh_instance_of_udecl env evm udecl =
+  let evm, entry = unquote_universes_decl env evm udecl in
+  match entry with
+  | UState.Monomorphic_entry _ -> evm, UVars.Instance.empty
+  | UState.Polymorphic_entry uctx ->
+    let auctx = UVars.AbstractContext.make (UVars.UContext.names uctx) (UVars.UContext.constraints uctx) in
+    Evd.with_sort_context_set ~sort_rigid:true Evd.univ_rigid evm (UnivGen.fresh_instance auctx)
+
+(* Declares [ident : typ] through Program's obligations, leaving its body as a
+   hole. [tactic], or the current Obligation Tactic when it is absent, is
+   tried on the obligation, and [k] receives the constant once it is
+   defined. *)
+let declare_lemma ~poly ~st ?tactic env evm ident typ k =
+  let kind = Decls.(IsDefinition Definition) in
+  let hole = CAst.make (Constrexpr.CHole (None)) in
+  let evm, (c, _) = Constrintern.interp_casted_constr_evars_impls ~program_mode:true env evm hole (EConstr.of_constr typ) in
+  RetrieveObl.check_evars env evm;
+  let obls, _, c, cty = RetrieveObl.retrieve_obligations env ident evm 0 c (EConstr.of_constr typ) in
+  let uctx = Evd.ustate evm in
+  let obl_hook = Declare.Hook.make_g (fun { Declare.Hook.S.dref = gr } pm ->
+      let env = Global.env () in
+      let evm = Evd.from_env env in
+      let evm, t = Evd.fresh_global env evm gr in
+      k ~st:pm env evm (EConstr.to_constr evm t)) in
+  let cinfo = Declare.CInfo.make ~name:ident ~typ:cty () in
+  let info = Declare.Info.make ~poly ~kind () in
+  Declare.Obls.add_definition ~pm:st ~cinfo ~info ~body:c ~uctx ?tactic ~obl_hook ~opaque:false obls
+
+(* Gets the Ltac tactic named by the qualid [s]. *)
+let ltac_of_qualid s : unit Proofview.tactic =
+  let open Ltac_plugin in
+  let qid = Libnames.qualid_of_string s in
+  let kn =
+    try Tacenv.locate_tactic qid
+    with Not_found -> CErrors.user_err (str "No Ltac tactic named " ++ Libnames.pr_qualid qid ++ str ".")
+  in
+  Tacinterp.eval_tactic (Tacenv.interp_ltac kn)
+
 let rec run_template_program_rec ~poly ?(intactic=false) (k : Constr.t Plugin_core.cont) ~st env ((evm, pgm) : Evd.evar_map * Constr.t) : Plugin_core.coq_state =
   let (kind, universes) = next_action env evm pgm in
   match kind with
@@ -518,23 +560,16 @@ let rec run_template_program_rec ~poly ?(intactic=false) (k : Constr.t Plugin_co
         (fun ~st a b c -> k ~st a b (quote_kn c))
 
   | TmLemma (name,typ) ->
-    let name = reduce_all env evm name in
-    let kind = Decls.(IsDefinition Definition) in
-    let hole = CAst.make (Constrexpr.CHole (None)) in
-    let evm, (c, _) = Constrintern.interp_casted_constr_evars_impls ~program_mode:true env evm hole (EConstr.of_constr typ) in
-    let ident = unquote_ident name in
-    RetrieveObl.check_evars env evm;
-    let obls, _, c, cty = RetrieveObl.retrieve_obligations env ident evm 0 c (EConstr.of_constr typ) in
-    (* let evm = Evd.minimize_universes evm in *)
-    let uctx = Evd.ustate evm in
-    let obl_hook = Declare.Hook.make_g (fun { Declare.Hook.S.dref = gr } pm ->
-        let env = Global.env () in
-        let evm = Evd.from_env env in
-        let evm, t = Evd.fresh_global env evm gr in
-        k ~st:pm env evm (EConstr.to_constr evm t)) in  (* todo better *)
-    let cinfo = Declare.CInfo.make ~name:ident ~typ:cty () in
-    let info = Declare.Info.make ~poly ~kind () in
-    Declare.Obls.add_definition ~pm:st ~cinfo ~info ~body:c ~uctx ~obl_hook ~opaque:false obls
+    let ident = unquote_ident (reduce_all env evm name) in
+    declare_lemma ~poly ~st env evm ident typ k
+  | TmLemmaU (name, udecl, typ, tac) ->
+    let ident = unquote_ident (reduce_all env evm name) in
+    let tactic = ltac_of_qualid (unquote_string (reduce_all env evm tac)) in
+    let evm, inst = fresh_instance_of_udecl env evm (reduce_all env evm udecl) in
+    let evm, typ = denote_term env evm (reduce_all env evm typ) in
+    let typ = Vars.subst_instance_constr inst typ in
+    declare_lemma ~poly ~st ~tactic env evm ident typ
+      (fun ~st env evm _ -> k ~st env evm (Lazy.force unit_tt))
 
   | TmQuote trm ->
     (* user should do the reduction (using tmEval) if they want *)

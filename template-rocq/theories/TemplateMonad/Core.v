@@ -30,6 +30,10 @@ Cumulative Inductive TemplateMonad@{s; t u} : Type@{t} -> Prop :=
 
 (* Return the defined constant *)
 | tmLemma : ident -> forall A : Type@{t}, TemplateMonad A
+(* Like tmLemma, for a quoted statement whose universes and sort qualities are
+   the bound variables of [udecl]. The obligation is solved with the Ltac
+   tactic named by the qualid, instead of the current Obligation Tactic. *)
+| tmLemmaU : ident -> universes_decl -> Ast.term -> qualid -> TemplateMonad unit
 | tmDefinitionRed_ : forall (opaque : bool), ident -> option reductionStrategy -> forall {A:Type@{t}}, A -> TemplateMonad A
 | tmRewriteRule_ : ident -> list (option string * string * string) -> TemplateMonad unit
 | tmAxiomRed : ident -> option reductionStrategy -> forall A : Type@{t}, TemplateMonad A

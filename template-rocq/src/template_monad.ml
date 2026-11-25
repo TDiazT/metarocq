@@ -46,6 +46,7 @@ let (ptmReturn,
      ptmUnquote,
      ptmUnquoteTyped,
      ptmDefinitionU,
+     ptmLemmaU,
 
      ptmInferInstance,
      ptmExistingInstance,
@@ -92,6 +93,7 @@ let (ptmReturn,
    r_template_monad_prop_p "tmUnquote",
    r_template_monad_prop_p "tmUnquoteTyped",
    r_template_monad_prop_p "tmDefinitionU",
+   r_template_monad_prop_p "tmLemmaU",
 
    r_template_monad_prop_p "tmInferInstance",
    r_template_monad_prop_p "tmExistingInstance",
@@ -209,6 +211,7 @@ type template_monad =
   | TmUnquote of Constr.t                   (* only Prop *)
   | TmUnquoteTyped of Constr.t * Constr.t (* only Prop *)
   | TmDefinitionU of Constr.t * Constr.t * Constr.t * Constr.t (* only Prop *)
+  | TmLemmaU of Constr.t * Constr.t * Constr.t * Constr.t (* only Prop *)
 
     (* typeclass resolution *)
   | TmExistingInstance of Constr.t * Constr.t
@@ -429,6 +432,11 @@ let next_action env evd (pgm : constr) : template_monad * _ =
     | t::[] ->
        (TmUnquote t, universes)
     | _ -> monad_failure "tmUnquote" 1
+  else if eq_gr ptmLemmaU then
+    match args with
+    | name::udecl::typ::tac::[] ->
+       (TmLemmaU (name, udecl, typ, tac), universes)
+    | _ -> monad_failure "tmLemmaU" 4
   else if eq_gr ptmDefinitionU then
     match args with
     | name::udecl::typ::body::[] ->

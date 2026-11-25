@@ -288,6 +288,7 @@ Register MetaRocq.Template.TemplateMonad.Core.tmQuoteModType as metarocq.templat
 
 Register MetaRocq.Template.TemplateMonad.Core.tmUnquote as metarocq.templatemonad.prop.tmUnquote.
 Register MetaRocq.Template.TemplateMonad.Core.tmDefinitionU as metarocq.templatemonad.prop.tmDefinitionU.
+Register MetaRocq.Template.TemplateMonad.Core.tmLemmaU as metarocq.templatemonad.prop.tmLemmaU.
 Register MetaRocq.Template.TemplateMonad.Core.tmUnquoteTyped as metarocq.templatemonad.prop.tmUnquoteTyped.
 
 Register MetaRocq.Template.TemplateMonad.Core.tmInferInstance as metarocq.templatemonad.prop.tmInferInstance.
