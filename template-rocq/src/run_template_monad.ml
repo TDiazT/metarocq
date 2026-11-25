@@ -436,6 +436,18 @@ let rec run_template_program_rec ~poly ?(intactic=false) (k : Constr.t Plugin_co
       let () = Declare.assumption_message name in
       let env = Global.env () in
       k ~st env evm (Constr.mkConstU (kn, UVars.Instance.empty))
+  | TmDefinitionU (name, udecl, typ, body) ->
+    if intactic then not_in_tactic "tmDefinitionU"
+    else
+      let name = unquote_ident (reduce_all env evm name) in
+      let evm, univs = unquote_universes_decl env evm (reduce_all env evm udecl) in
+      let evm, typ = denote_term env evm (reduce_all env evm typ) in
+      let evm, body = denote_term env evm (reduce_all env evm body) in
+      let entry = Declare.definition_entry ~types:typ ~univs:(univs, UnivNames.empty_binders) body in
+      let _ = Declare.declare_constant ~name ~kind:Decls.(IsDefinition Definition) (Declare.DefinitionEntry entry) in
+      let () = Declare.definition_message name in
+      let env = Global.env () in
+      k ~st env (Evd.from_env env) (Lazy.force unit_tt)
   | TmDefinition (opaque,name,s,typ,body) ->
     if intactic
     then not_in_tactic "tmDefinition"

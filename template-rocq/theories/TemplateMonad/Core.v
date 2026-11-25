@@ -35,6 +35,9 @@ Cumulative Inductive TemplateMonad@{s; t u} : Type@{t} -> Prop :=
 | tmAxiomRed : ident -> option reductionStrategy -> forall A : Type@{t}, TemplateMonad A
 | tmVariable : ident -> Type@{t} -> TemplateMonad unit
 | tmSymbol_ : ident -> bool (* unfold_fix *) -> universes_decl -> Ast.term -> TemplateMonad unit
+(* Declares a definition from a quoted type and body whose universes and sort
+   qualities are the bound variables of [udecl]. *)
+| tmDefinitionU : ident -> universes_decl -> Ast.term -> Ast.term -> TemplateMonad unit
 
 (* Guaranteed to not cause "... already declared" error *)
 | tmFreshName : ident -> TemplateMonad ident
